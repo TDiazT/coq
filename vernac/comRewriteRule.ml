@@ -111,19 +111,29 @@ let safe_quality_pattern_of_quality ~loc evd qsubst stateq q =
   match Sorts.Quality.(subst (subst_fn qsubst) q) with
   | QConstant qc -> stateq, PQConstant qc
   | QVar qv ->
-    let qio = Sorts.QVar.var_index qv in
-    let stateq = Option.fold_right (update_invtblq1 ~loc evd q) qio stateq in
-    stateq, PQVar qio
+    match Sorts.QVar.repr qv with
+    | Global qg -> stateq, PQGlobal qg
+    | Var qi ->
+        update_invtblq1 ~loc evd q qi stateq, PQVar (Some qi)
+    | Unif _ -> stateq, PQVar None
 
 let update_invtblu ~loc evd (qsubst, usubst) (state, stateq, stateu : state) u : state * _ =
   let (q, u) = u |> UVars.Instance.to_array in
   let stateq, maskq = Array.fold_left_map (safe_quality_pattern_of_quality ~loc evd qsubst) stateq q
   in
   let stateu, masku = Array.fold_left_map (fun stateu lvlold ->
-      (* MS TODO Check correctness of Option.get *)
-      let lvlnew = Univ.Level.var_index @@ Option.get (Univ.Universe.level (Univ.subst_univs_level_universe usubst lvlold)) in
+      let lvlnew = Fun.flip Option.bind Univ.Level.var_index @@ Univ.Universe.level (Univ.subst_univs_level_universe usubst lvlold) in
       Option.fold_right (update_invtblu1 ~loc evd lvlold) lvlnew stateu, lvlnew
     ) stateu u
+  in
+  (state, stateq, stateu), (maskq, masku)
+
+let update_invtblqu ~loc evd (qsubst, usubst) (state, stateq, stateu : state) u : state * _ =
+  let (q, u) = u |> UVars.QualUniv.to_quality_univ in
+  let stateq, maskq = safe_quality_pattern_of_quality ~loc evd qsubst stateq q in
+  let stateu, masku =
+      let lvlnew = Fun.flip Option.bind Univ.Level.var_index @@ Univ.Universe.level @@ Univ.subst_univs_level_universe usubst u in
+      Option.fold_right (update_invtblu1 ~loc evd u) lvlnew stateu, lvlnew
   in
   (state, stateq, stateu), (maskq, masku)
 
@@ -148,8 +158,9 @@ let safe_sort_pattern_of_sort ~loc evd (qsubst, usubst) (st, sq, su as state) s 
   | Prop -> state, PSProp
   | Set -> state, PSSet
   | QSort (qold, u) ->
+      let qv = match Sorts.Quality.subst_fn qsubst qold with QConstant _ -> assert false | QVar qv -> qv in
       let sq, bq =
-        match Sorts.Quality.(var_index @@ subst_fn qsubst qold) with
+        match Sorts.QVar.var_index qv with
         | Some q -> update_invtblq1 ~loc evd (QVar qold) q sq, Some q
         | None -> sq, None
       in
@@ -158,7 +169,9 @@ let safe_sort_pattern_of_sort ~loc evd (qsubst, usubst) (st, sq, su as state) s 
         | Some (lvlold, lvl) -> update_invtblu1 ~loc evd (Univ.Universe.make lvlold) lvl su, Some lvl
         | None -> su, None
       in
-      (st, sq, su), PSQSort (bq, ba)
+      match Sorts.QVar.name qv with
+      | Some qg -> (st, sq, su), PSGlobal (qg, ba)
+      | None -> (st, sq, su), PSQSort (bq, ba)
 
 
 let warn_irrelevant_pattern =
@@ -199,10 +212,10 @@ let rec safe_pattern_of_constr_aux ~loc env evd usubst depth state t = Constr.ki
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state f in
       let state, pargs = Array.fold_left_map (safe_arg_pattern_of_constr ~loc env evd usubst depth) state args in
       state, (head, elims @ [PEApp pargs])
-  | Case (ci, u, params, (ret, _), _, c, brs) ->
+  | Case (ci, u, params, (ret, qu), _, c, brs) ->
       let mib, mip = Inductive.lookup_mind_specif env ci.ci_ind in
 
-      let state, mask = update_invtblu ~loc evd usubst state u in
+      let state, maskqu = update_invtblqu ~loc evd usubst state qu in
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state c in
 
       let paramdecl = Vars.subst_instance_context u mib.mind_params_ctxt in
@@ -231,7 +244,7 @@ let rec safe_pattern_of_constr_aux ~loc env evd usubst depth state t = Constr.ki
         safe_arg_pattern_of_constr ~loc br_env evd usubst (depth + Array.length nas) state br
       in
       let state, pbrs = Array.fold_left_map_i do_one_branch state brs in
-      state, (head, elims @ [PECase (ci.ci_ind, mask, pret, pbrs)])
+      state, (head, elims @ [PECase (ci.ci_ind, pret, maskqu, pbrs)])
   | Proj (p, _, c) ->
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state c in
       state, (head, elims @ [PEProj (Projection.repr p)])
@@ -353,7 +366,7 @@ let rec test_pattern_redex env evd ~loc = function
   | PHLambda _, _ -> warn_redex_in_rewrite_rules ?loc (Pp.str " lambda pattern")
   | PHConstr (c, _) as head, PEApp args :: elims -> test_projection_apps env evd ~loc (fst c) args; Array.iter (test_pattern_redex_aux env evd ~loc) args; test_pattern_redex env evd ~loc (head, elims)
   | head, PEApp args :: elims -> Array.iter (test_pattern_redex_aux env evd ~loc) args; test_pattern_redex env evd ~loc (head, elims)
-  | head, PECase (_, _, ret, brs) :: elims -> test_pattern_redex_aux env evd ~loc ret; Array.iter (test_pattern_redex_aux env evd ~loc) brs; test_pattern_redex env evd ~loc (head, elims)
+  | head, PECase (_, ret, _, brs) :: elims -> test_pattern_redex_aux env evd ~loc ret; Array.iter (test_pattern_redex_aux env evd ~loc) brs; test_pattern_redex env evd ~loc (head, elims)
   | head, PEProj _ :: elims -> test_pattern_redex env evd ~loc (head, elims)
   | PHProd (tys, bod), [] -> Array.iter (test_pattern_redex_aux env evd ~loc) tys; test_pattern_redex_aux env evd ~loc bod
   | (PHRel _ | PHInt _ | PHFloat _ | PHString _ | PHSort _ | PHInd _ | PHConstr _ | PHSymbol _), [] -> ()
@@ -371,7 +384,7 @@ let rewrite_rules_break_SR_msg = CWarnings.create_msg rewrite_rules_break_SR_war
 let warn_rewrite_rules_break_SR ~loc reason =
   CWarnings.warn rewrite_rules_break_SR_msg ?loc reason
 let () = CWarnings.register_printer rewrite_rules_break_SR_msg
-  (fun reason -> Pp.(str "This rewrite rule breaks subject reduction (" ++ reason ++ str ")."))
+  (fun reason -> Pp.(str "This rewrite rule breaks subject reduction " ++ reason))
 
 let interp_rule (udecl, lhs, rhs: Constrexpr.universe_decl_expr option * _ * _) =
   let env = Global.env () in
@@ -468,15 +481,16 @@ let interp_rule (udecl, lhs, rhs: Constrexpr.universe_decl_expr option * _ * _) 
   let flags = { Pretyping.no_classes_no_fail_inference_flags with patvars_abstract = true } in
   let evd', rhs =
     try Pretyping.understand_tcc ~flags env evd ~expected_type:(OfType typ) rhs
-    with Type_errors.TypeError _ | Pretype_errors.PretypeError _ ->
-      warn_rewrite_rules_break_SR ~loc:rhs_loc (Pp.str "the replacement term doesn't have the type of the pattern");
+    with Pretype_errors.PretypeError (env, evd, e) ->
+      warn_rewrite_rules_break_SR ~loc:rhs_loc
+        Pp.(str "(the replacement term doesn't have the type of the pattern)." ++ fnl () ++ Himsg.explain_pretype_error env evd e);
       Pretyping.understand_tcc ~flags env evd rhs
   in
 
   let evd' = Evd.minimize_universes evd' in
   let _qvars', uvars' = EConstr.universes_of_constr evd' rhs in
   let evd' = Evd.restrict_universe_context evd' (Univ.Level.Set.union uvars uvars') in
-  let fail pp = warn_rewrite_rules_break_SR ~loc:rhs_loc Pp.(str "universe inconsistency, missing constraints: " ++ pp) in
+  let fail pp = warn_rewrite_rules_break_SR ~loc:rhs_loc Pp.(str "(universe inconsistency)." ++ spc () ++ str"Missing constraints: " ++ pp) in
   let () = UState.check_uctx_impl ~fail (Evd.ustate evd) (Evd.ustate evd') in
   let evd = evd' in
 
@@ -506,6 +520,7 @@ let interp_rule (udecl, lhs, rhs: Constrexpr.universe_decl_expr option * _ * _) 
           Pp.(str "Sort variable " ++ Termops.pr_evd_qvar evd q ++ str " appears in the replacement but does not appear in the pattern.")
     | Some n when n < 0 || n > nvarqs' -> CErrors.anomaly Pp.(str "Unknown sort variable in rewrite rule.")
     | Some _ -> ()
+    | None when Option.has_some (Sorts.QVar.name q) -> ()
     | None ->
         if not @@ Sorts.QVar.Set.mem q (evd |> Evd.sort_context_set |> fst |> fst) then
           CErrors.user_err ?loc:rhs_loc

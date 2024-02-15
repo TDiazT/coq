@@ -20,7 +20,7 @@ module QGlobal = struct
   type t = {
     library : DirPath.t;
     process : string;
-    id : Id.t 
+    id : Id.t
   }
 
   let make library process id = { library; process ; id }
@@ -44,7 +44,7 @@ module QGlobal = struct
 
   let to_string { library = d; process = s ; id } =
     DirPath.to_string d ^
-    (if CString.is_empty s then "" else "." ^ s) ^ 
+    (if CString.is_empty s then "" else "." ^ s) ^
     "." ^ Id.to_string id
 end
 
@@ -66,6 +66,11 @@ struct
     | Var q -> Some q
     | Unif _ -> None
     | Global _ -> None
+
+  let name = function
+  | Global id -> Some id
+  | Var _ -> None
+  | Unif _ -> None
 
   let hash = function
     | Var q -> Hashset.Combine.combinesmall 1 q
@@ -140,7 +145,7 @@ module Quality = struct
   let var i = QVar (QVar.make_var i)
   let global sg = QVar (QVar.make_global sg)
 
-  let is_var x = 
+  let is_var x =
     match x with
     | QVar _ -> true
     | QConstant _ -> false
@@ -185,6 +190,12 @@ module Quality = struct
     | QVar _, _ -> -1
     | _, QVar _ -> 1
     | QConstant a, QConstant b -> Constants.compare a b
+
+  let family = function
+    | QConstant QSProp -> InSProp
+    | QConstant QProp -> InProp
+    | QConstant QType -> InType
+    | QVar _ -> InQSort
 
   let pr prv = function
     | QVar v -> prv v
@@ -241,13 +252,14 @@ module Quality = struct
   module Map = CMap.Make(Self)
 
   type pattern =
-    | PQVar of int option | PQConstant of constant
+    | PQVar of int option | PQConstant of constant | PQGlobal of QGlobal.t
 
   let pattern_match ps s qusubst =
     match ps, s with
     | PQConstant qc, QConstant qc' -> if Constants.equal qc qc' then Some qusubst else None
+    | PQGlobal qg, QVar (QVar.Global qg') -> if QGlobal.equal qg qg' then Some qusubst else None
     | PQVar qio, q -> Some (Partial_subst.maybe_add_quality qio q qusubst)
-    | PQConstant _, QVar _ -> None
+    | (PQConstant _ | PQGlobal _), (QConstant _ | QVar _) -> None
 end
 
 module QConstraint = struct
@@ -493,6 +505,13 @@ let relevance_of_sort_family = function
   | InSProp -> Irrelevant
   | _ -> Relevant
 
+let relevance_of_quality =
+  let open Quality in
+  function
+  | QConstant QSProp -> Irrelevant
+  | QConstant (QProp | QType) -> Relevant
+  | QVar qv -> RelevanceVar qv
+
 let relevance_hash = function
   | Relevant -> 0
   | Irrelevant -> 1
@@ -534,7 +553,7 @@ let pr_sort_family = function
   | InQSort -> Pp.(str "Type") (* FIXME? *)
 
 type pattern =
-  | PSProp | PSSProp | PSSet | PSType of int option | PSQSort of int option * int option
+  | PSProp | PSSProp | PSSet | PSType of int option | PSGlobal of QGlobal.t * int option | PSQSort of int option * int option
 
 let extract_univ = function
   | Type u
@@ -548,5 +567,6 @@ let pattern_match ps s qusubst =
   | PSSet, Set -> Some qusubst
   | PSType uio, Set -> Some (Partial_subst.maybe_add_univ uio Univ.Universe.type0 qusubst)
   | PSType uio, Type u -> Some (Partial_subst.maybe_add_univ uio u qusubst)
+  | PSGlobal (qg, uio), QSort (QVar.Global qg', u) -> if QGlobal.equal qg qg' then Some (Partial_subst.maybe_add_univ uio u qusubst) else None
   | PSQSort (qio, uio), s -> Some (qusubst |> Partial_subst.maybe_add_quality qio (quality s) |> Partial_subst.maybe_add_univ uio (extract_univ s))
-  | (PSProp | PSSProp | PSSet | PSType _), _ -> None
+  | (PSProp | PSSProp | PSSet | PSType _ | PSGlobal _), _ -> None

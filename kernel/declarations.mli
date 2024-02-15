@@ -159,7 +159,7 @@ v}
 type record_info =
 | NotRecord
 | FakeRecord
-| PrimRecord of (Id.t * Label.t array * Sorts.relevance array * types array) array
+| PrimRecord of (Id.t * Label.t array * UVars.QualUniv.t array * types array) array
 
 type regular_inductive_arity = {
   mind_user_arity : types;
@@ -294,12 +294,13 @@ type mind_specif = mutual_inductive_body * one_inductive_body
 (** {6 Rewrite rules } *)
 
 type quality_pattern = Sorts.Quality.pattern =
-  | PQVar of int option | PQConstant of Sorts.Quality.constant
+  | PQVar of int option | PQConstant of Sorts.Quality.constant | PQGlobal of Sorts.QGlobal.t
 
 type instance_mask = UVars.Instance.mask
+type qualuniv_mask = UVars.QualUniv.mask
 
 type sort_pattern = Sorts.pattern =
-  | PSProp | PSSProp | PSSet | PSType of int option | PSQSort of int option * int option
+  | PSProp | PSSProp | PSSet | PSType of int option | PSGlobal of Sorts.QGlobal.t * int option | PSQSort of int option * int option
 
 (** Patterns are internally represented as pairs of a head-pattern and a list of eliminations
     Eliminations correspond to elements of the stack in a reduction machine,
@@ -319,7 +320,7 @@ type 'arg head_pattern =
 
 type pattern_elimination =
   | PEApp     of pattern_argument array
-  | PECase    of inductive * instance_mask * pattern_argument * pattern_argument array
+  | PECase    of inductive * pattern_argument * qualuniv_mask * pattern_argument array
   | PEProj    of Projection.Repr.t
 
 and head_elimination = pattern_argument head_pattern * pattern_elimination list

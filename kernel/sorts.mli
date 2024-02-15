@@ -33,6 +33,7 @@ sig
   type t
 
   val var_index : t -> int option
+  val name : t -> QGlobal.t option
 
   val make_var : int -> t
   val make_unif : string -> int -> t
@@ -86,6 +87,8 @@ module Quality : sig
 
   val var_index : t -> int option
 
+  val family : t -> family
+
   val equal : t -> t -> bool
 
   val compare : t -> t -> int
@@ -108,7 +111,7 @@ module Quality : sig
   module Map : CMap.ExtS with type key = t and module Set := Set
 
   type pattern =
-    PQVar of int option | PQConstant of constant
+    PQVar of int option | PQConstant of constant | PQGlobal of QGlobal.t
 
   val pattern_match : pattern -> t -> ('t, t, 'u) Partial_subst.t -> ('t, t, 'u) Partial_subst.t option
 end
@@ -201,6 +204,7 @@ val relevance_equal : relevance -> relevance -> bool
 
 val relevance_subst_fn : (QVar.t -> Quality.t) -> relevance -> relevance
 
+val relevance_of_quality : Quality.t -> relevance
 val relevance_of_sort : t -> relevance
 val relevance_of_sort_family : family -> relevance
 
@@ -210,6 +214,6 @@ val debug_print_relevance : relevance -> Pp.t
 val pr_sort_family : family -> Pp.t
 
 type pattern =
-  | PSProp | PSSProp | PSSet | PSType of int option | PSQSort of int option * int option
+  | PSProp | PSSProp | PSSet | PSType of int option | PSGlobal of QGlobal.t * int option | PSQSort of int option * int option
 
 val pattern_match : pattern -> t -> ('t, Quality.t, Univ.Universe.t) Partial_subst.t -> ('t, Quality.t, Univ.Universe.t) Partial_subst.t option
