@@ -17,6 +17,7 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Program.Basics.
 Require Import Coq.Program.Tactics.
+Require Import Coq.Tactics.Equality.
 
 Local Obligation Tactic := try solve [simpl_relation | firstorder auto].
 
@@ -104,7 +105,8 @@ Proof.
   apply proper_sym_arrow_iff_2.
   - red. symmetry. assumption.
   - red. symmetry. assumption.
-  - intros R R' EQ a a' Ha WF. subst a.
+  - intros R R' EQ a a' Ha WF.
+    rewrite! <- Ha. clear Ha.
     induction WF as [x _ WF']. constructor.
     intros y Ryx. apply WF', EQ. assumption.
 Qed.
