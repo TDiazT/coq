@@ -9,7 +9,7 @@
 (************************************************************************)
 
 Require Import PreludeOptions.
-Require Import Notations.
+Require Import Coq.Init.Notations.
 Require Import Sigma.
 
 (** listings: id **)

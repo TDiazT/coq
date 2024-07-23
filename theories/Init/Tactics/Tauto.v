@@ -10,7 +10,7 @@
 
 (** * The tauto and intuition tactics *)
 
-Require Import Notations.
+Require Import Coq.Init.Notations.
 Require Import Ltac.
 Require Import Types.
 

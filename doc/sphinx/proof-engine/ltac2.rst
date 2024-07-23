@@ -64,7 +64,7 @@ Use the following command to import Ltac2:
 
 .. coqtop:: in
 
-   From Ltac2 Require Import Ltac2.
+   From Coq.Ltac2 Require Import Ltac2.
 
 Type Syntax
 ~~~~~~~~~~~
@@ -200,7 +200,7 @@ For example, `Message.print` defined in `Message.v` is used to print messages:
 .. coqtop:: all abort
 
    Message.print (Message.of_string "fully qualified calls").
-   From Ltac2 Require Import Message.
+   From Coq.Ltac2 Require Import Message.
    print (of_string "unqualified calls").
 
 Term Syntax
@@ -908,7 +908,7 @@ one from Ltac1, except that it requires the goal to be focused.
 
    .. coqtop:: in
 
-      From Ltac2 Require Import Message.
+      From Coq.Ltac2 Require Import Message.
       Ltac2 msg x := print (of_string x).
 
    .. coqtop:: none
@@ -1237,7 +1237,7 @@ Notations
 
       .. coqtop:: all
 
-         From Ltac2 Require Import Message.
+         From Coq.Ltac2 Require Import Message.
          Ltac2 Notation "ex1" x(constr) := print (of_constr x).
          ex1 (1 + 2).
 
@@ -1840,7 +1840,7 @@ below will fail immediately and won't print anything.
 
 .. coqtop:: in
 
-   From Ltac2 Require Import Ltac2.
+   From Coq.Ltac2 Require Import Ltac2.
    Set Default Proof Mode "Classic".
 
 .. coqtop:: all

@@ -9,7 +9,7 @@
 (************************************************************************)
 
 Require Import PreludeOptions.
-Require Import Notations.
+Require Import Coq.Init.Notations.
 
 (** [option A] is the extension of [A] with an extra element [None] *)
 

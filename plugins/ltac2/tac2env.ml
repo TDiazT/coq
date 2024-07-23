@@ -325,13 +325,13 @@ let interp_ml_object t =
 (** Absolute paths *)
 
 let coq_prefix =
-  MPfile (DirPath.make (List.map Id.of_string ["Init"; "Ltac2"]))
+  MPfile (DirPath.make (List.map Id.of_string ["Init"; "Ltac2"; "Coq"]))
 
 let std_prefix =
-  MPfile (DirPath.make (List.map Id.of_string ["Std"; "Ltac2"]))
+  MPfile (DirPath.make (List.map Id.of_string ["Std"; "Ltac2"; "Coq"]))
 
 let ltac1_prefix =
-  MPfile (DirPath.make (List.map Id.of_string ["Ltac1"; "Ltac2"]))
+  MPfile (DirPath.make (List.map Id.of_string ["Ltac1"; "Ltac2"; "Coq"]))
 
 (** Generic arguments *)
 

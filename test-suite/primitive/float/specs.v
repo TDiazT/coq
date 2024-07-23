@@ -10,7 +10,7 @@
        is evaluated in multiple evaluation mechanisms to check
        that their results agree with the one given by vm_compute. *)
 From Coq Require Import String List ZArith Sint63 Uint63 Floats.
-From Ltac2 Require Import Ltac2 Printf.
+From Coq.Ltac2 Require Import Ltac2 Printf.
 Import ListNotations.
 Open Scope string_scope.
 Open Scope list_scope.

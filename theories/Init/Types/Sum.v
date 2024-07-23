@@ -9,7 +9,7 @@
 (************************************************************************)
 
 Require Import PreludeOptions.
-Require Import Notations.
+Require Import Coq.Init.Notations.
 
 Inductive sum@{s s' s''|u v|} (A : Type@{s|u}) (B : Type@{s'|v}) : Type@{s''|max(u,v)} :=
   | left : A -> sum A B

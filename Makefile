@@ -126,19 +126,16 @@ DUNESTRAPOPT=--root .
 
 # We regenerate always as to correctly track deps, can do better
 # We do a single call to dune as to avoid races and locking
-_build/default/theories_dune _build/default/ltac2_dune .dune-stamp: FORCE
-	dune build $(DUNEOPT) $(DUNESTRAPOPT) theories_dune ltac2_dune
+_build/default/theories_dune .dune-stamp: FORCE
+	dune build $(DUNEOPT) $(DUNESTRAPOPT) theories_dune
 	touch .dune-stamp
 
 theories/dune: .dune-stamp
 	cp -a _build/default/theories_dune $@ && chmod +w $@
 
-user-contrib/Ltac2/dune: .dune-stamp
-	cp -a _build/default/ltac2_dune $@ && chmod +w $@
-
 FORCE: ;
 
-DUNE_FILES=theories/dune user-contrib/Ltac2/dune
+DUNE_FILES=theories/dune
 
 dunestrap: $(DUNE_FILES)
 

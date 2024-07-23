@@ -1,4 +1,4 @@
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 Notation "'silly' i1 .. i_ => x"
   := (let v := match (fun i1 => .. (fun i_ => x) ..) return _ with
                | y => y

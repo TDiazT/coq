@@ -1,4 +1,4 @@
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 
 Ltac2 f () := Control.zero (Invalid_argument None).
 
