@@ -1,4 +1,4 @@
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 Module M.
   #[local] Ltac2 f () := Control.throw (Invalid_argument None).
   Ltac2 g () := f ().

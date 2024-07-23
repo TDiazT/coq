@@ -8,7 +8,7 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-Require Import Notations.
+Require Import Coq.Init.Notations.
 Require Import Ltac.
 Require Import Types.
 

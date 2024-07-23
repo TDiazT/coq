@@ -9,7 +9,7 @@
 (************************************************************************)
 
 Require Import PreludeOptions.
-Require Import Notations.
+Require Import Coq.Init.Notations.
 
 (** listings: empty **)
 Inductive empty@{s| |} : Type@{s|0} :=.

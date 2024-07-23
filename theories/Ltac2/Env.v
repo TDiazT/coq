@@ -8,7 +8,7 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-From Ltac2 Require Import Init Std.
+From Coq.Ltac2 Require Import Init Std.
 
 Ltac2 @ external get : ident list -> Std.reference option := "coq-core.plugins.ltac2" "env_get".
 (** Returns the global reference corresponding to the absolute name given as

@@ -1,5 +1,5 @@
-From Ltac2 Require Import Ltac2.
-From Ltac2 Require Import Message.
+From Coq.Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Message.
 
 Ltac2 msg s := print (of_string s).
 

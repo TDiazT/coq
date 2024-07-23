@@ -1,4 +1,4 @@
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 
 (* true and false are valid constructors even though they are lowercase *)
 Ltac2 Eval true.

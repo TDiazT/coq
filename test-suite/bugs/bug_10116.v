@@ -1,3 +1,3 @@
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 
 Ltac2 Eval true :: [], false.

@@ -1,5 +1,5 @@
 Require Import ssreflect.
-From Ltac2 Require Import Ltac2.
+From Coq.Ltac2 Require Import Ltac2.
 
 Inductive nat_list :=
   Nil

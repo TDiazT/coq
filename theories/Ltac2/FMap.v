@@ -8,8 +8,8 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-From Ltac2 Require Import Init.
-From Ltac2 Require FSet.
+From Coq.Ltac2 Require Import Init.
+From Coq.Ltac2 Require FSet.
 
 Import FSet.Tags.
 

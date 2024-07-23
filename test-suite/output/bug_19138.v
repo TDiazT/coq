@@ -1,4 +1,4 @@
-From Ltac2 Require Import Ltac2 Constr.
+From Coq.Ltac2 Require Import Ltac2 Constr.
 Import Constr.Unsafe.
 
 Goal True.

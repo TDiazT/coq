@@ -14,7 +14,7 @@
     from a well-founded ordering on a given set *)
 
 Require Import PreludeOptions.
-Require Import Notations.
+Require Import Coq.Init.Notations.
 
 (** Well-founded induction principle on [Prop] *)
 

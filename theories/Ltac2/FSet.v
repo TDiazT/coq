@@ -8,7 +8,7 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-From Ltac2 Require Import Init.
+From Coq.Ltac2 Require Import Init.
 
 Module Import Tags.
   Ltac2 Type 'a tag.
