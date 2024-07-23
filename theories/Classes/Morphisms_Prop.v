@@ -106,7 +106,7 @@ Proof.
   - red. symmetry. assumption.
   - red. symmetry. assumption.
   - intros R R' EQ a a' Ha WF.
-    rewrite! <- Ha. clear Ha.
+    ltac2:(rewrite! <- Ha). clear Ha.
     induction WF as [x _ WF']. constructor.
     intros y Ryx. apply WF', EQ. assumption.
 Qed.
