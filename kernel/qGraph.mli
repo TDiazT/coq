@@ -50,6 +50,8 @@ type constraint_source =
   | Rigid
   | Static
 
+val merge : t -> t -> t
+
 val merge_constraints : constraint_source -> Quality.ElimConstraints.t -> t -> t
 
 val update_dominance_if_valid : t -> Quality.ElimConstraint.t -> t option
@@ -83,6 +85,8 @@ val enforce_eq : Quality.t -> Quality.t -> t -> t
 val initial_graph : unit -> t
 (** Graph with the constant quality elimination constraints found in
     [Quality.Constants.eliminates_to]. *)
+
+val update_rigids : t -> t -> t
 
 val eliminates_to : t -> Quality.t -> Quality.t -> bool
 

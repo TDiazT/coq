@@ -268,6 +268,9 @@ let initial_graph() =
 let eliminates_to g q q' =
   check_func ElimConstraint.ElimTo g.graph q q'
 
+let update_rigids g g' =
+  { g' with rigid_paths = g.rigid_paths }
+
 let sort_eliminates_to g s1 s2 =
   eliminates_to g (Sorts.quality s1) (Sorts.quality s2)
 
@@ -286,6 +289,16 @@ let qvar_domain g =
     (fun q acc -> match q with Quality.QVar q -> Quality.QVar.Set.add q acc | _ -> acc)
     (domain g) Quality.QVar.Set.empty
 
+let merge g g' =
+  let qs = domain g' in
+  let g = Quality.Set.fold
+             (fun q acc -> try add_quality q acc with _ -> acc) qs g in
+  Quality.Set.fold
+    (fun q -> Quality.Set.fold
+             (fun q' acc -> if eliminates_to g' q q'
+                         then enforce_eliminates_to Static q q' acc
+                         else acc) qs) qs g
+
 let is_empty g = QVar.Set.is_empty (qvar_domain g)
 
 let explain_quality_inconsistency defprv (prv, (k, q1, q2, r)) =
@@ -293,8 +306,8 @@ let explain_quality_inconsistency defprv (prv, (k, q1, q2, r)) =
   let prv = match prv with None -> defprv | Some prv -> prv in
   let pr_cst = function
     | AcyclicGraph.Eq -> str"="
-    | AcyclicGraph.Le -> str"->"
-    | AcyclicGraph.Lt -> str"->" (* Yes, it's the same as above. *)
+    | AcyclicGraph.Le -> str"~>"
+    | AcyclicGraph.Lt -> str"~>" (* Yes, it's the same as above. *)
   in
   let reason = match r with
     | None -> mt()
@@ -305,8 +318,8 @@ let explain_quality_inconsistency defprv (prv, (k, q1, q2, r)) =
       else
         let qualities = pstart :: List.map snd p in
         let constants = List.filter Quality.is_qconst qualities in
-        str "because it would identify" ++
-          prlist (fun q -> spc() ++ str"and" ++ spc() ++ Quality.pr prv q) constants ++
+        str "because it would identify" ++ spc() ++
+          prlist_with_sep (fun() -> spc() ++ str"and" ++ spc()) (Quality.pr prv) constants ++
           spc() ++ str"which is inconsistent." ++ spc() ++
           str"This is introduced by the constraints" ++ spc() ++ Quality.pr prv pstart ++
           prlist (fun (r,v) -> spc() ++ pr_cst r ++ str" " ++ Quality.pr prv v) p

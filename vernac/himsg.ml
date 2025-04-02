@@ -241,7 +241,8 @@ let explain_elim_arity env sigma ind c okinds =
         if ppunivs then Flags.with_option Constrextern.print_universes pp ()
         else pp ()
       in
-      let env = Environ.set_qualities (QGraph.qvar_domain @@ Evd.elim_graph sigma) env in
+      let g = QGraph.merge (Environ.qualities env) (Evd.elim_graph sigma) in
+      let env = Environ.set_qualities g env in
       let squash = Option.get (Inductive.is_squashed env (specif, snd ind)) in
       match squash with
       | SquashToSet ->
@@ -285,11 +286,11 @@ let explain_elim_arity env sigma ind c okinds =
         let ppt = ppt ~ppunivs:true () in
         hov 0
           (str "the return type has sort" ++ spc () ++ ppt ++ spc () ++
-           str "while it should be in sort quality " ++ pr_evd_qvar sigma squashq ++ str ".") ++
+           str "while it should be in a sort " ++ pr_evd_qvar sigma squashq ++ str " eliminates to.") ++
         fnl () ++
         hov 0
           (str "Elimination of a sort polymorphic inductive object instantiated to a variable sort quality" ++ spc() ++
-           str "is only allowed on a predicate in the same sort quality.")
+           str "is only allowed on itself or with an explicit elimination constraint to the target sort.")
   in
   hov 0 (
     str "Incorrect elimination" ++
@@ -861,7 +862,31 @@ let explain_non_linear_unification env sigma m t =
   strbrk " which would require to abstract twice on " ++
   pr_leconstr_env env sigma t ++ str "."
 
-let explain_unsatisfied_constraints env sigma cst =
+let explain_unsatisfied_quconstraints env sigma (qcsts,ucsts) =
+  let ucsts = Univ.UnivConstraints.filter (fun cst -> not @@ UGraph.check_constraint (Evd.universes sigma) cst) ucsts in
+  let qcsts = Quality.QCumulConstraints.filter (fun cst -> not @@ Quality.QCumulConstraint.trivial cst) qcsts in
+  let univ_str = if Univ.UnivConstraints.is_empty ucsts
+                 then mt()
+                 else spc() ++ Univ.UnivConstraints.pr (Termops.pr_evd_level sigma) ucsts in
+  let elim_str = if Quality.QCumulConstraints.is_empty qcsts
+                 then mt()
+                 else spc() ++ Quality.QCumulConstraints.pr (Termops.pr_evd_qvar sigma) qcsts in
+  strbrk "Unsatisfied constraints:" ++ univ_str ++ elim_str ++
+    spc () ++ str "(maybe a bugged tactic)."
+
+let explain_unsatisfied_poly_constraints env sigma (elim_csts,univ_csts) =
+  let univ_csts = Univ.UnivConstraints.filter (fun cst -> not @@ UGraph.check_constraint (Evd.universes sigma) cst) univ_csts in
+  let elim_csts = Quality.ElimConstraints.filter (fun cst -> not @@ QGraph.check_constraint (Evd.elim_graph sigma) cst) elim_csts in
+  let univ_str = if Univ.UnivConstraints.is_empty univ_csts
+                 then mt()
+                 else spc() ++ Univ.UnivConstraints.pr (Termops.pr_evd_level sigma) univ_csts in
+  let elim_str = if Quality.ElimConstraints.is_empty elim_csts
+                 then mt()
+                 else spc() ++ Quality.ElimConstraints.pr (Termops.pr_evd_qvar sigma) elim_csts in
+  strbrk "Unsatisfied constraints:" ++ univ_str ++ elim_str ++
+    spc () ++ str "(maybe a bugged tactic)."
+
+let explain_unsatisfied_univ_constraints env sigma cst =
   let cst = Univ.UnivConstraints.filter (fun cst -> not @@ UGraph.check_constraint (Evd.universes sigma) cst) cst in
   strbrk "Unsatisfied constraints: " ++
     Univ.UnivConstraints.pr (Termops.pr_evd_level sigma) cst ++
@@ -1002,9 +1027,13 @@ let explain_type_error env sigma err =
   | IllTypedRecBody (i, lna, vdefj, vargs) ->
      explain_ill_typed_rec_body env sigma i lna vdefj vargs
   | WrongCaseInfo (ind,ci) ->
-      explain_wrong_case_info env ind ci
+     explain_wrong_case_info env ind ci
+  | UnsatisfiedPolyConstraints cst ->
+    explain_unsatisfied_poly_constraints env sigma cst
+  | UnsatisfiedQUConstraints cst ->
+    explain_unsatisfied_quconstraints env sigma cst
   | UnsatisfiedUnivConstraints cst ->
-    explain_unsatisfied_constraints env sigma cst
+    explain_unsatisfied_univ_constraints env sigma cst
   | UnsatisfiedElimConstraints cst ->
     explain_unsatisfied_elim_constraints env sigma cst
   | UnsatisfiedQCumulConstraints cst ->
@@ -1241,7 +1270,7 @@ let explain_not_match_error = function
       let uctx = AbstractContext.repr auctx in
       Printer.pr_universe_instance_binder sigma
         (UContext.instance uctx)
-        (UContext.constraints uctx)
+        (UContext.univ_constraints uctx)
     in
     str "incompatible polymorphic binders: got" ++ spc () ++ h (pr_auctx got) ++ spc() ++
     str "but expected" ++ spc() ++ h (pr_auctx expect) ++
@@ -1692,7 +1721,10 @@ let rec vernac_interp_error_handler = function
     UGraph.explain_universe_inconsistency
       UnivNames.pr_quality_with_global_universes
       UnivNames.pr_level_with_global_universes
-      i ++ str "."
+                  i ++ str "."
+  | QGraph.EliminationError i ->
+     QGraph.explain_elimination_error
+       UnivNames.pr_quality_with_global_universes i
   | TypeError(env,te) ->
     let te = of_type_error te in
     explain_type_error env (Evd.from_env env) te
