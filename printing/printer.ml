@@ -291,7 +291,7 @@ let pr_universe_instance_binder evd inst csts =
   let pcsts = if Constraints.is_empty csts then mt()
     else strbrk " | " ++
          prlist_with_sep pr_comma
-           (fun (u,d,v) -> hov 0 (prlev u ++ pr_constraint_type d ++ prlev v))
+           (fun (u,d,v) -> hov 0 (prlev u ++ UnivConstraint.pr_kind d ++ prlev v))
            (Constraints.elements csts)
   in
   str"@{" ++ UVars.Instance.pr prqvar prlev inst ++ pcsts ++ str"}"
