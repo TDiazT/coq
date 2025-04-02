@@ -192,7 +192,7 @@ type required_lib = {
 type section_data = {
   rev_env : Environ.env;
   rev_univ : Univ.ContextSet.t;
-  rev_qualities : Sorts.QVar.Set.t;
+  rev_qualities : Quality.QVar.Set.t;
   rev_objlabels : Label.Set.t;
   rev_reimport : reimport list;
   rev_revstruct : structure_body;
