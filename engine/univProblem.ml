@@ -30,6 +30,18 @@ let force = function
 
 let check_eq_level g u v = UGraph.check_eq_level g u v
 
+let of_elim_constraint (a,c,b) =
+  match c with
+  | Quality.ElimConstraint.Equal -> QEq (a, b)
+  | Quality.ElimConstraint.ElimTo -> QElimTo (a, b)
+
+let of_univ_constraint (a,c,b) =
+  let to_sort l = Sorts.sort_of_univ (Univ.Universe.make l) in
+  match c with
+  | Univ.UnivConstraint.Le -> ULe (to_sort a, to_sort b)
+  | Univ.UnivConstraint.Eq -> UEq (to_sort a, to_sort b)
+  | Univ.UnivConstraint.Lt -> assert false
+
 module Set = struct
   module S = Set.Make(
   struct
@@ -76,7 +88,7 @@ module Set = struct
 
   let pr_one = let open Pp in function
     | QEq (a, b) -> Quality.raw_pr a ++ str " = " ++ Quality.raw_pr b
-    | QElimTo (a, b) -> Quality.raw_pr a ++ str " -> " ++ Quality.raw_pr b
+    | QElimTo (a, b) -> Quality.raw_pr a ++ str " ~> " ++ Quality.raw_pr b
     | ULe (u, v) -> Sorts.debug_print u ++ str " <= " ++ Sorts.debug_print v
     | UEq (u, v) -> Sorts.debug_print u ++ str " = " ++ Sorts.debug_print v
     | ULub (u, v) -> Level.raw_pr u ++ str " /\\ " ++ Level.raw_pr v
@@ -91,6 +103,10 @@ module Set = struct
     x == y || equal x y
 
   let force s = map force s
+
+  let of_poly_constraints cstrs =
+	Univ.UnivConstraints.fold (fun cst -> add (of_univ_constraint cst)) (PolyConstraints.univs cstrs)
+      (Quality.ElimConstraints.fold (fun cst -> add (of_elim_constraint cst)) (PolyConstraints.qualities cstrs) empty)
 end
 
 type 'a constraint_function = 'a -> 'a -> Set.t -> Set.t

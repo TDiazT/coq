@@ -40,6 +40,8 @@ module Set : sig
 
   (** Replace ULub constraints by UEq *)
   val force : t -> t
+
+  val of_poly_constraints : PolyConstraints.t -> t
 end
 
 type 'a constraint_function = 'a -> 'a -> Set.t -> Set.t
