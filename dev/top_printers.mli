@@ -153,6 +153,7 @@ val ppesorts : EConstr.ESorts.t -> unit
 val pperelevance : EConstr.ERelevance.t -> unit
 val prlev : Univ.Level.t -> Pp.t (* with global names (does this work?) *)
 val ppqvarset : Quality.QVar.Set.t -> unit
+val ppqset : Quality.Set.t -> unit
 val ppuniverse_set : Univ.Level.Set.t -> unit
 val ppuniverse_instance : UVars.Instance.t -> unit
 val ppuniverse_context : UVars.UContext.t -> unit
@@ -167,6 +168,8 @@ val ppconstraints : Univ.UnivConstraints.t -> unit
 val ppuniverseconstraints : UnivProblem.Set.t -> unit
 val ppuniverse_context_future : UVars.UContext.t Future.computation -> unit
 val ppuniverses : UGraph.t -> unit
+val ppqgraph : QGraph.t -> unit
+val ppelim_constraints : Quality.ElimConstraints.t -> unit
 
 val pp_partialfsubst : (CClosure.fconstr, Quality.t, Univ.Universe.t) Partial_subst.t -> unit
 val pp_partialsubst : (EConstr.constr, Quality.t, Univ.Universe.t) Partial_subst.t -> unit
