@@ -300,10 +300,10 @@ struct
   module S = Stdlib.Set.Make(ElimConstraint)
   include S
 
-  let pr prv c =
-    v 0 (prlist_with_sep spc (fun (u1,op,u2) ->
-      hov 0 (pr prv u1 ++ ElimConstraint.pr_kind op ++ pr prv u2))
-           (elements c))
+  let pr prv cstrs =
+    v 0 (prlist_with_sep spc (fun (q1, op, q2) ->
+      hov 0 (pr prv q1 ++ spc() ++ ElimConstraint.pr_kind op ++ spc() ++ pr prv q2))
+           (elements cstrs))
 
   module HConstraints = CSet.Hashcons(ElimConstraint)(struct
       type t = ElimConstraint.t
