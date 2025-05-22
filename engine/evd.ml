@@ -1187,9 +1187,10 @@ let set_leq_sort evd s1 s2 =
 let set_eq_qualities evd q1 q2 =
   add_constraints evd @@ UnivProblem.Set.singleton (QEq (q1, q2))
 
-let set_elim_to_prop evd q =
-  add_constraints evd @@
-    UnivProblem.Set.singleton (QElimTo (q, Quality.qprop))
+let set_elim_to evd q1 q2 = 
+  add_constraints evd @@ UnivProblem.Set.singleton (QElimTo (q1, q2))
+
+let set_elim_to_prop evd q = set_elim_to evd q Quality.qprop
 
 let check_eq evd s s' =
   let quals = elim_graph evd in

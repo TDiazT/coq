@@ -141,6 +141,8 @@ let check_constraint (g, _, _) (q1, k, q2) = check_func k g q1 q2
 
 let check_constraints csts g = ElimConstraints.for_all (check_constraint g) csts
 
+let check_declared_qualities (g, _, _) qs = G.check_declared g qs
+
 exception AlreadyDeclared = G.AlreadyDeclared
 
 let add_quality q (g, p, dom) =
