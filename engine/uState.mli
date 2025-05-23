@@ -236,7 +236,7 @@ val minimize : t -> t
 
 val collapse_elim_to_prop_sort_variables : to_prop:bool -> t -> t
 
-val collapse_sort_variables : ?except:Quality.QVar.Set.t -> t -> t
+val collapse_sort_variables : ?except:Quality.QVar.Set.t -> ?to_type:bool -> t -> t
 
 type ('a, 'b, 'c, 'd) gen_poly_decl = {
   polydecl_qualities : 'a;
