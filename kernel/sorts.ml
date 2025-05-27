@@ -222,4 +222,4 @@ let enforce_elim_to_quality a b csts =
   if Quality.equal a b then csts
   else match a, b with
     | Quality.(QConstant QProp), Quality.(QConstant QType) -> csts
-    | _ -> ElimConstraints.add (a,ElimConstraint.ElimTo,b) csts
+    | _ -> ElimConstraints.add (a, ElimConstraint.ElimTo, b) csts
