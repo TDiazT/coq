@@ -116,34 +116,34 @@ let add_transitive_rigid_paths q1 q2 p =
   let transitive_set = RigidPaths.filter (fun (q,_) -> Quality.equal q2 q) p in
   RigidPaths.fold (fun (_,q) p -> RigidPaths.add (q1,q) p) transitive_set p
 
-let enforce_constraint src (q1,k,q2) (g,p,dom) =
+let enforce_constraint src (q1, k, q2) (g, p, dom) =
   match enforce_func k q1 q2 g with
   | None ->
-     let e = lazy (G.get_explanation (q1,to_graph_cstr k,q2) g) in
+     let e = lazy (G.get_explanation (q1, to_graph_cstr k, q2) g) in
      raise @@ EliminationError (QualityInconsistency (None, (k, q1, q2, Some (Path e))))
   | Some g' ->
      match src with
-     | Static -> (g',p,dom)
+     | Static -> (g', p, dom)
      | Rigid ->
         if (Quality.is_qconst q1 && Quality.is_qconst q2) ||
              (Quality.is_qsprop q1 && not (Quality.is_qsprop q2)) ||
                (Quality.is_qprop q1 && not (Quality.is_qprop q2))
         then raise (EliminationError IllegalConstraint)
-        else (g', RigidPaths.add (q1,q2) @@ add_transitive_rigid_paths q1 q2 p,dom)
+        else (g', RigidPaths.add (q1, q2) @@ add_transitive_rigid_paths q1 q2 p, dom)
      | Internal ->
         match get_new_rigid_path g' p dom with
-        | None -> (g',p,dom)
-        | Some (q1,q2) -> raise (EliminationError (CreatesForbiddenPath (q1, q2)))
+        | None -> (g', p, dom)
+        | Some (q1, q2) -> raise (EliminationError (CreatesForbiddenPath (q1, q2)))
 
 let merge_constraints src csts g = ElimConstraints.fold (enforce_constraint src) csts g
 
-let check_constraint (g,_,_) (q1, k, q2) = check_func k g q1 q2
+let check_constraint (g, _, _) (q1, k, q2) = check_func k g q1 q2
 
 let check_constraints csts g = ElimConstraints.for_all (check_constraint g) csts
 
 exception AlreadyDeclared = G.AlreadyDeclared
 
-let add_quality q (g,p,dom) =
+let add_quality q (g, p, dom) =
   let g = G.add q g in
   let (g,p,dom) = enforce_constraint Static (Quality.qtype, ElimConstraint.ElimTo, q) (g,p,dom) in
   let (p,dom) = if Quality.is_qglobal q
@@ -176,7 +176,7 @@ let initial_graph =
 let update_rigids (_,p,_) (g',_,dom) =
   (g',p,dom)
 
-let eliminates_to (g,_,_) q q' =
+let eliminates_to (g, _, _) q q' =
   check_func ElimConstraint.ElimTo g q q'
 
 let sort_eliminates_to g s1 s2 =
