@@ -31,6 +31,7 @@ val hash : t -> int
 val is_sprop : t -> bool
 val is_set : t -> bool
 val is_prop : t -> bool
+val is_qsort : t -> bool
 val is_small : t -> bool
 val quality : t -> Quality.t
 
@@ -56,6 +57,8 @@ val relevance_equal : relevance -> relevance -> bool
 val relevance_subst_fn : (Quality.QVar.t -> Quality.t) -> relevance -> relevance
 
 val relevance_of_sort : t -> relevance
+
+val is_relevant : relevance -> bool
 
 val debug_print : t -> Pp.t
 val pr : (Quality.QVar.t -> Pp.t) -> (Univ.Universe.t -> Pp.t) -> t -> Pp.t

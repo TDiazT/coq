@@ -5,7 +5,7 @@ because it would identify Type and Prop which is inconsistent.
 This is introduced by the constraints Type ~> Prop
 File "./output/sort_poly_elim_error.v", line 19, characters 0-106:
 The command has indeed failed with message:
-Elimination constraints are not implied by the ones declared:
+Elimination constraints are not implied by the ones declared: 
 s' ~> s
 File "./output/sort_poly_elim_error.v", line 24, characters 0-37:
 The command has indeed failed with message:

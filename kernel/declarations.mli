@@ -151,6 +151,7 @@ v}
     - The identifier for the binder name of the record in primitive projections.
     - The constants associated to each projection.
     - The projection types (under parameters).
+    - The recheck at eta conversion flag (to check elimination constraints)
 
     The kernel does not exploit the difference between [NotRecord] and
     [FakeRecord]. It is mostly used by extraction, and should be extruded from
@@ -160,7 +161,7 @@ v}
 type record_info =
 | NotRecord
 | FakeRecord
-| PrimRecord of (Id.t * Label.t array * Sorts.relevance array * types array) array
+| PrimRecord of (Id.t * Label.t array * Sorts.relevance array * types array * bool) array
 
 type squash_info =
   | AlwaysSquashed
