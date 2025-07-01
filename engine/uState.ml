@@ -760,7 +760,10 @@ let process_constraints uctx cstrs =
       let mk q = Sorts.make q Universe.type0 in
       match cst with
     | QEq (a, b) -> unify_quality univs CONV (mk a) (mk b) local
-    | QLeq (a, b) -> unify_quality univs CUMUL (mk a) (mk b) local
+    | QLeq (a, b) ->
+        (match a, b with
+        | QVar qv1, QVar qv2 -> { local with local_cst = PolyConstraints.add_quality (b, ElimTo, a) local.local_cst }
+        | _, _ -> unify_quality univs CUMUL (mk a) (mk b) local)
     | ULe (l, r) ->
       let local = unify_quality univs CUMUL l r local in
       let l = normalize_sort local.local_sorts l in

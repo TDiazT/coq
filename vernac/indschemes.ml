@@ -216,19 +216,20 @@ let declare_one_case_analysis_scheme ?loc ind =
 (* Induction/recursion schemes *)
 
 let declare_one_induction_scheme ?loc ind =
-  let (mib,mip) as specif = Global.lookup_inductive ind in
-  let kind = Indrec.pseudo_sort_quality_for_elim ind mip in
-  let from_prop = Quality.is_qprop kind in
+  let (mib, mip) as specif = Global.lookup_inductive ind in
+  let ind_pseudo_quality = Indrec.pseudo_sort_quality_for_elim ind mip in
+  let from_prop = Quality.is_qprop ind_pseudo_quality in
   let depelim = Inductiveops.has_dependent_elim specif in
   let kelim = Inductiveops.constant_sorts_below
-              @@ Inductiveops.elim_sort (mib,mip) in
+              @@ Inductiveops.elim_sort (mib, mip) in
   let kelim =
     if Global.sprop_allowed ()
     then kelim
     else List.filter (fun s -> not (UnivGen.QualityOrSet.is_sprop s)) kelim
   in
+  (* TODO: Define in terms of sort poly one, after defining the individual scheme *)
   let elims =
-    List.filter (fun (sort,_) -> List.mem_f UnivGen.QualityOrSet.equal sort kelim)
+    List.filter (fun (sort, _) -> List.mem_f UnivGen.QualityOrSet.equal sort kelim)
       (* NB: the order is important, it makes it so that _rec is
          defined using _rect but _ind is not. *)
       [(UnivGen.QualityOrSet.qtype, "rect");
@@ -236,11 +237,17 @@ let declare_one_induction_scheme ?loc ind =
        (UnivGen.QualityOrSet.set, "rec");
        (UnivGen.QualityOrSet.sprop, "sind")]
   in
-  let elims = List.map (fun (to_kind,dflt_suff) ->
+  let elims = List.map (fun (to_kind, dflt_suff) ->
       if from_prop then elim_scheme ~dep:false ~to_kind, Some dflt_suff
       else if depelim then elim_scheme ~dep:true ~to_kind, Some dflt_suff
       else elim_scheme ~dep:false ~to_kind, None)
       elims
+  in
+  (* Quickfix to include elimination scheme between sort variables *)
+  let elims = match ind_pseudo_quality with 
+    | Quality.QVar q -> 
+      (elim_scheme ~dep:false ~to_kind:(UnivGen.QualityOrSet.Qual ind_pseudo_quality), Some "poly") :: elims 
+    | _ -> elims 
   in
   List.iter (fun (kind, suff) ->
       let id = match suff with
@@ -256,8 +263,8 @@ let declare_induction_schemes ?(locmap=Locmap.default None) kn =
   let mib = Global.lookup_mind kn in
   if mib.mind_finite <> Declarations.CoFinite then begin
     for i = 0 to Array.length mib.mind_packets - 1 do
-      let loc = Ind_tables.Locmap.lookup ~locmap (kn,i) in
-      declare_one_induction_scheme (kn,i) ?loc;
+      let loc = Ind_tables.Locmap.lookup ~locmap (kn, i) in
+      declare_one_induction_scheme (kn, i) ?loc;
     done;
   end
 
