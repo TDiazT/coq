@@ -56,13 +56,27 @@ let default_case_analysis_dependence env ind =
 let build_induction_scheme_in_type env dep sort ind =
   let sigma = Evd.from_env env in
   let sigma, pind = Evd.fresh_inductive_instance ~rigid:UState.univ_rigid env sigma ind in
-  let sigma, sort = Evd.fresh_sort_in_quality ~rigid:UnivRigid sigma sort in
+  let sigma, sort =
+    match sort with
+    | QualityOrSet.Qual (Sorts.Quality.QVar _) ->
+      let sigma, pred_sort = Evd.new_sort_variable UnivRigid sigma in
+      let pred_quality = EConstr.ESorts.quality sigma pred_sort in
+      let _, ind_sort = EConstr.destArity sigma (Retyping.get_type_of env sigma (EConstr.mkIndU pind)) in
+      let ind_quality = EConstr.ESorts.quality  sigma ind_sort in
+      let sigma = Evd.set_elim_to  sigma ind_quality pred_quality in
+      sigma, pred_sort
+    | _ -> Evd.fresh_sort_in_quality ~rigid:UnivRigid sigma sort
+  in
   let sigma, c = build_induction_scheme env sigma pind dep sort in
   EConstr.to_constr sigma c, Evd.ustate sigma
 
 let rect_dep =
   declare_individual_scheme_object "rect_dep"
     (fun env _ x -> build_induction_scheme_in_type env true QualityOrSet.qtype x)
+
+let poly_dep q =
+  declare_individual_scheme_object "poly_dep"
+    (fun env _ x -> build_induction_scheme_in_type env true (QualityOrSet.Qual q) x)
 
 let rec_dep =
   declare_individual_scheme_object "rec_dep"
@@ -100,10 +114,11 @@ let elim_scheme ~dep ~to_kind =
        match q with
        | QConstant QSProp when dep -> sind_dep
        | QConstant QProp when dep -> ind_dep
-       | (QConstant QType | QVar _) when dep -> rect_dep
+       | QConstant QType when dep -> rect_dep
+       | Sorts.Quality.QVar _ -> poly_dep q
        | QConstant QSProp -> sind_nodep
        | QConstant QProp -> ind_nodep
-       | QConstant QType | QVar _ -> rect_nodep
+       | QConstant QType -> rect_nodep
      end
   | Set -> if dep then rec_dep else rec_nodep
 
@@ -198,6 +213,14 @@ let case_dep =
 let case_nodep =
   declare_individual_scheme_object "case_nodep"
     (fun env _ x -> build_case_analysis_scheme_in_type env false QualityOrSet.qtype x)
+
+let case_poly_dep =
+  declare_individual_scheme_object "case_poly_dep"
+    (fun env _ x -> build_case_analysis_scheme_in_type env true (QualityOrSet.Qual (Sorts.Quality.QVar (Sorts.QVar.make_var 0))) x)
+
+let case_poly_nodep =
+  declare_individual_scheme_object "case_poly_nodep"
+    (fun env _ x -> build_case_analysis_scheme_in_type env false (QualityOrSet.Qual (Sorts.Quality.QVar (Sorts.QVar.make_var 0))) x)
 
 let casep_dep =
   declare_individual_scheme_object "casep_dep"
