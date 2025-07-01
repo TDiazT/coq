@@ -30,11 +30,12 @@ let build_induction_scheme_in_type env dep sort ind =
   let sigma, sort = 
     match sort with
     | QualityOrSet.Qual (Quality.QVar _) ->
-      let sigma, l = Evd.new_univ_level_variable UnivRigid sigma in
-      let _, s = EConstr.destArity sigma (Retyping.get_type_of env sigma (EConstr.mkIndU pind)) in
-      (match EConstr.ESorts.kind sigma s with
-      | QSort (q, _) -> sigma, EConstr.ESorts.make (Sorts.qsort q (Univ.Universe.make l))
-      | _ -> Evd.fresh_sort_in_quality ~rigid:UnivRigid sigma sort)
+      let sigma, pred_sort = Evd.new_sort_variable UnivRigid sigma in  
+      let pred_quality = EConstr.ESorts.quality sigma pred_sort in 
+      let _, ind_sort = EConstr.destArity sigma (Retyping.get_type_of env sigma (EConstr.mkIndU pind)) in 
+      let ind_quality = EConstr.ESorts.quality  sigma ind_sort in 
+      let sigma = Evd.set_elim_to  sigma ind_quality pred_quality in 
+      sigma, pred_sort 
     | _ -> Evd.fresh_sort_in_quality ~rigid:UnivRigid sigma sort
   in
   let sigma, c = build_induction_scheme env sigma pind dep sort in
