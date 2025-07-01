@@ -25,32 +25,41 @@ Require Import Logic.
     Similarly [(sig2 A P Q)], or [{x:A | P x & Q x}], denotes the subset
     of elements of the type [A] which satisfy both [P] and [Q]. *)
 
-#[universes(template)]
-Inductive sig (A:Type) (P:A -> Prop) : Type :=
-    exist : forall x:A, P x -> sig P.
+Set Universe Polymorphism.    
+Set Sort Polymorphism.    
+
+Inductive sigma (A:Type) (P:A -> Type) : Type :=
+    exist_poly : forall x:A, P x -> sigma P.
+
+Definition sig@{i j} := sigma@{Type Prop Type | i j}.
+Definition exist@{i j} := exist_poly@{Type Prop Type | i j}.
+Definition sig_rect@{i j k} := sigma_poly@{Type Prop Type Type| i j k}.
 
 Register sig as core.sig.type.
 Register exist as core.sig.intro.
 Register sig_rect as core.sig.rect.
 
-#[universes(template)]
-Inductive sig2 (A:Type) (P Q:A -> Prop) : Type :=
-    exist2 : forall x:A, P x -> Q x -> sig2 P Q.
+Inductive sigma2 (A:Type) (P Q:A -> Type) : Type :=
+    exist2_poly : forall x:A, P x -> Q x -> sigma2 P Q.
+
+Definition sig2@{i j k} := sigma2@{Type Prop Prop Type | i j k}.
+Definition exist2@{i j k} := exist2_poly@{Type Prop Prop Type | i j k}.
+Definition sig2_rect@{i j k l} := sigma2_poly@{Type Prop Prop Type Type | i j k l}.
 
 (** [(sigT A P)], or more suggestively [{x:A & (P x)}] is a Sigma-type.
     Similarly for [(sigT2 A P Q)], also written [{x:A & (P x) & (Q x)}]. *)
 
-#[universes(template)]
-Inductive sigT (A:Type) (P:A -> Type) : Type :=
-    existT : forall x:A, P x -> sigT P.
+Definition sigT@{i j} := sigma@{Type Type Type | i j}.
+Definition existT@{i j} := exist_poly@{Type Type Type | i j}.
+Definition sigT_rect@{i j k} := sigma_poly@{Type Type Type Type| i j k}.
 
 Register sigT as core.sigT.type.
 Register existT as core.sigT.intro.
 Register sigT_rect as core.sigT.rect.
 
-#[universes(template)]
-Inductive sigT2 (A:Type) (P Q:A -> Type) : Type :=
-    existT2 : forall x:A, P x -> Q x -> sigT2 P Q.
+Definition sigT2@{i j k} := sigma2@{Type Type Type Type | i j k}.
+Definition existT2@{i j k} := exist2_poly@{Type Type Type Type | i j k}.
+Definition sigT2_rect@{i j k l} := sigma2_poly@{Type Type Type Type Type | i j k l}.
 
 (* Notations *)
 
@@ -58,6 +67,12 @@ Arguments sig (A P)%_type.
 Arguments sig2 (A P Q)%_type.
 Arguments sigT (A P)%_type.
 Arguments sigT2 (A P Q)%_type.
+
+Notation "'Σ' x , P" := (sigma (fun x => P%_type)) (at level 200): type_scope.
+Notation "'Σ' x , P & Q" := (sigma2 (fun x => P%_type) (fun x => Q%_type)) : type_scope.
+Notation "'Σ' x : A , P" := (sigma (A:=A) (fun x => P%_type)) : type_scope.
+Notation "'Σ' x : A , P & Q" := (sigT2 (A:=A) (fun x => P%_type) (fun x => Q)) :
+  type_scope.
 
 Notation "{ x | P }" := (sig (fun x => P%_type)) : type_scope.
 Notation "{ x | P & Q }" := (sig2 (fun x => P%_type) (fun x => Q%_type)) : type_scope.
@@ -81,11 +96,11 @@ Notation "{ ' pat : A & P }" := (sigT (A:=A) (fun pat => P%_type)) : type_scope.
 Notation "{ ' pat : A & P & Q }" := (sigT2 (A:=A) (fun pat => P%_type) (fun pat => Q%_type)) :
   type_scope.
 
-Add Printing Let sig.
-Add Printing Let sig2.
-Add Printing Let sigT.
+Add Printing Let sigma.
+Add Printing Let sigma2.
+(* Add Printing Let sigT.
 Add Printing Let sigT2.
-
+*)
 
 (** Projections of [sig]
 
@@ -98,22 +113,24 @@ Add Printing Let sigT2.
 Section Subset_projections.
 
   Variable A : Type.
-  Variable P : A -> Prop.
+  Variables P : A -> Type.
 
-  Definition proj1_sig (e:sig P) := match e with
-                                    | exist _ a b => a
+  Definition proj1_sigma (e:sigma P) := match e with
+                                    | exist_poly _ a b => a
                                     end.
 
-  Definition proj2_sig (e:sig P) :=
-    match e return P (proj1_sig e) with
-    | exist _ a b => b
+  Definition proj2_sigma (e:sigma P) :=
+    match e return P (proj1_sigma e) with
+    | exist_poly _ a b => b
     end.
-
-  Register proj1_sig as core.sig.proj1.
-  Register proj2_sig as core.sig.proj2.
 
 End Subset_projections.
 
+Definition proj1_sig@{i j} := proj1_sigma@{Type Prop Type| i j}.
+Definition proj2_sig@{i j} := proj2_sigma@{Type Prop Type| i j}.
+
+Register proj1_sig as core.sig.proj1.
+Register proj2_sig as core.sig.proj2.
 
 (** [sig2] of a predicate can be projected to a [sig].
 
@@ -123,10 +140,12 @@ End Subset_projections.
     [proj1_sig] of a coerced [X : sig2 P Q] will unify with [let (a,
     _, _) := X in a] *)
 
-Definition sig_of_sig2 (A : Type) (P Q : A -> Prop) (X : sig2 P Q) : sig P
-  := exist P
+Definition sigma_of_sigma2 (A : Type) (P Q : A -> Type) (X : sigma2 P Q) : sigma P
+  := exist_poly P
            (let (a, _, _) := X in a)
            (let (x, p, _) as s return (P (let (a, _, _) := s in a)) := X in p).
+
+Definition sig_of_sig2@{i j k} := sigma_of_sigma2@{Type Prop Prop Type Type| i j k}.
 
 (** Projections of [sig2]
 
@@ -140,13 +159,15 @@ Definition sig_of_sig2 (A : Type) (P Q : A -> Prop) (X : sig2 P Q) : sig P
 Section Subset_projections2.
 
   Variable A : Type.
-  Variables P Q : A -> Prop.
+  Variables P : A -> Type.
+  Variables Q : A -> Type.
 
-  Definition proj3_sig (e : sig2 P Q) :=
-    let (a, b, c) return Q (proj1_sig (sig_of_sig2 e)) := e in c.
+  Definition proj3_sigma (e : sigma2 P Q) :=
+    let (a, b, c) return Q (proj1_sigma (sigma_of_sigma2 e)) := e in c.
 
 End Subset_projections2.
 
+Definition proj3_sig@{i j k} := proj3_sigma@{Type Prop Prop Type Type | i j k}.
 
 (** Projections of [sigT]
 
@@ -155,21 +176,10 @@ End Subset_projections2.
     [(projT1 x)] is the first projection and [(projT2 x)] is the
     second projection, the type of which depends on the [projT1]. *)
 
-
-
 Section Projections.
 
-  Variable A : Type.
-  Variable P : A -> Type.
-
-  Definition projT1 (x:sigT P) : A := match x with
-                                      | existT _ a _ => a
-                                      end.
-
-  Definition projT2 (x:sigT P) : P (projT1 x) :=
-    match x return P (projT1 x) with
-    | existT _ _ h => h
-    end.
+  Definition projT1@{i j} := proj1_sigma@{Type Type Type| i j}.
+  Definition projT2@{i j} := proj2_sigma@{Type Type Type| i j}.
 
   Register projT1 as core.sigT.proj1.
   Register projT2 as core.sigT.proj2.
@@ -177,9 +187,9 @@ Section Projections.
 End Projections.
 
 Module SigTNotations.
-  Notation "( x ; y )" := (existT _ x y) (at level 0, format "( x ;  '/  ' y )").
-  Notation "x .1" := (projT1 x) (at level 1, left associativity, format "x .1").
-  Notation "x .2" := (projT2 x) (at level 1, left associativity, format "x .2").
+  Notation "( x ; y )" := (exist_poly _ x y) (at level 0, format "( x ;  '/  ' y )").
+  Notation "x .1" := (proj1_sigma x) (at level 1, left associativity, format "x .1").
+  Notation "x .2" := (proj2_sigma x) (at level 1, left associativity, format "x .2").
 End SigTNotations.
 
 Import SigTNotations.
@@ -192,10 +202,7 @@ Import SigTNotations.
     [projT1] of a coerced [X : sigT2 P Q] will unify with [let (a,
     _, _) := X in a] *)
 
-Definition sigT_of_sigT2 (A : Type) (P Q : A -> Type) (X : sigT2 P Q) : sigT P
-  := existT P
-            (let (a, _, _) := X in a)
-            (let (x, p, _) as s return (P (let (a, _, _) := s in a)) := X in p).
+Definition sigT_of_sigT2@{i j k} := sigma_of_sigma2@{Type Type Type Type Type| i j k}.
 
 (** Projections of [sigT2]
 
@@ -206,15 +213,7 @@ Definition sigT_of_sigT2 (A : Type) (P Q : A -> Type) (X : sigT2 P Q) : sigT P
     and [(projT3 x)] is the third projection, the types of which
     depends on the [projT1]. *)
 
-Section Projections2.
-
-  Variable A : Type.
-  Variables P Q : A -> Type.
-
-  Definition projT3 (e : sigT2 P Q) :=
-    let (a, b, c) return Q (projT1 (sigT_of_sigT2 e)) := e in c.
-
-End Projections2.
+Definition projT3@{i j k} := proj3_sigma@{Type Type Type Type Type | i j k}.
 
 Local Notation "x .3" := (projT3 x) (at level 1, left associativity, format "x .3").
 
@@ -283,18 +282,22 @@ Proof.
 Qed.
 
 (** Subtyping for prod *)
+(*
+#[projections(primitive=yes)]
+Record Prod (A : Type) (P:A -> Type) : Type := Pair { fst : A ; snd : P fst }.
+*)
 
 Section ProdSigT.
 
   Variable A B : Type.
 
-  Definition sigT_of_prod (p : A * B) := (fst p; snd p).
-  Definition prod_of_sigT (s : { _ : A & B }) := (s.1, s.2).
+  Definition sigma_of_prod (p : A * B) := (fst p; snd p).
+  Definition prod_of_sigma (s : @sigma A  (fun _=> B)) := (s.1 , s.2).
 
-  Lemma sigT_prod_sigT p : sigT_of_prod (prod_of_sigT p) = p.
+  Lemma sigma_prod_sigma p : sigma_of_prod (prod_of_sigma p) = p.
   Proof. destruct p; reflexivity. Qed.
 
-  Lemma prod_sigT_prod s : prod_of_sigT (sigT_of_prod s) = s.
+  Lemma prod_sigma_prod s : prod_of_sigma (sigma_of_prod s) = s.
   Proof. destruct s; reflexivity. Qed.
 
 End ProdSigT.
@@ -318,7 +321,7 @@ Section sigT.
 
   (** Equality of [sigT] is itself a [sigT] (forwards-reasoning version) *)
   Definition eq_existT_uncurried {A : Type} {P : A -> Type} {u1 v1 : A} {u2 : P u1} {v2 : P v1}
-             (pq : { p : u1 = v1 & rew p in u2 = v2 })
+             (pq : (Σ p , rew p in u2 = v2):Prop)
     : (u1; u2) = (v1; v2).
   Proof.
     destruct pq as [p q].
@@ -328,11 +331,11 @@ Section sigT.
 
   (** Equality of [sigT] is itself a [sigT] (backwards-reasoning version) *)
   Definition eq_sigT_uncurried {A : Type} {P : A -> Type} (u v : { a : A & P a })
-             (pq : { p : u.1 = v.1 & rew p in u.2 = v.2 })
+             (pq : (Σ p , rew p in u.2 = v.2) : Prop)
     : u = v.
   Proof.
     destruct u as [u1 u2], v as [v1 v2]; simpl in *.
-    apply eq_existT_uncurried; exact pq.
+    apply eq_existT_uncurried. exact pq.
   Defined.
 
   Lemma eq_existT_curried {A : Type} {P : A -> Type} {u1 v1 : A} {u2 : P u1} {v2 : P v1}
@@ -371,7 +374,7 @@ Section sigT.
   Definition eq_sigT {A : Type} {P : A -> Type} (u v : { a : A & P a })
              (p : u.1 = v.1) (q : rew p in u.2 = v.2)
     : u = v
-    := eq_sigT_uncurried u v (existT _ p q).
+    := eq_sigT_uncurried u v (exist_poly _ p q).
 
   (** In order to have a performant [inversion_sigma], we define
       specialized versions for when we have constructors on one or
@@ -390,13 +393,12 @@ Section sigT.
     : u = v
     := eq_sigT u v p (P_hprop _ _ _).
 
-  Set Debug "backtrace".
   (** Equivalence of equality of [sigT] with a [sigT] of equality *)
   (** We could actually prove an isomorphism here, and not just [<->],
       but for simplicity, we don't. *)
   Definition eq_sigT_uncurried_iff {A P}
              (u v : { a : A & P a })
-    : u = v <-> { p : u.1 = v.1 & rew p in u.2 = v.2 }.
+    : u = v <-> Σ p , rew p in u.2 = v.2.
   Proof.
     split; [ intro; subst; exists eq_refl; reflexivity | apply eq_sigT_uncurried ].
   Defined.
@@ -479,7 +481,7 @@ Section sig.
 
   (** Equality of [sig] is itself a [sig] (forwards-reasoning version) *)
   Definition eq_exist_uncurried {A : Type} {P : A -> Prop} {u1 v1 : A} {u2 : P u1} {v2 : P v1}
-             (pq : { p : u1 = v1 | rew p in u2 = v2 })
+             (pq : (Σ p, rew p in u2 = v2) :Prop)
     : exist _ u1 u2 = exist _ v1 v2.
   Proof.
     destruct pq as [p q].
@@ -489,7 +491,7 @@ Section sig.
 
   (** Equality of [sig] is itself a [sig] (backwards-reasoning version) *)
   Definition eq_sig_uncurried {A : Type} {P : A -> Prop} (u v : { a : A | P a })
-             (pq : { p : proj1_sig u = proj1_sig v | rew p in proj2_sig u = proj2_sig v })
+             (pq : (Σ p, rew p in proj2_sig u = proj2_sig v):Prop)
     : u = v.
   Proof.
     destruct u as [u1 u2], v as [v1 v2]; simpl in *.
@@ -506,7 +508,7 @@ Section sig.
   Definition eq_sig {A : Type} {P : A -> Prop} (u v : { a : A | P a })
              (p : proj1_sig u = proj1_sig v) (q : rew p in proj2_sig u = proj2_sig v)
     : u = v
-    := eq_sig_uncurried u v (exist _ p q).
+    := eq_sig_uncurried u v (exist_poly _ p q).
 
   (** In order to have a performant [inversion_sigma], we define
       specialized versions for when we have constructors on one or
@@ -565,7 +567,7 @@ Section sig.
       but for simplicity, we don't. *)
   Definition eq_sig_uncurried_iff {A} {P : A -> Prop}
              (u v : { a : A | P a })
-    : u = v <-> { p : proj1_sig u = proj1_sig v | rew p in proj2_sig u = proj2_sig v }.
+    : u = v <-> Σ p, rew p in proj2_sig u = proj2_sig v.
   Proof.
     split; [ intro; subst; exists eq_refl; reflexivity | apply eq_sig_uncurried ].
   Defined.
@@ -591,7 +593,7 @@ Global Arguments eq_exist_curried A P _ _ _ _ !p !q / .
 (** Equality for [sigT2] *)
 Section sigT2.
   (* We make [sigT_of_sigT2] a coercion so we can use [projT1], [projT2] on [sigT2] *)
-  Local Coercion sigT_of_sigT2 : sigT2 >-> sigT.
+  Local Coercion sigma_of_sigma2 : sigma2 >-> sigma.
   Local Coercion ex_of_ex2 : ex2 >-> ex.
   Local Unset Implicit Arguments.
   (** Projecting an equality of a pair to equality of the first components *)
@@ -615,8 +617,7 @@ Section sigT2.
   (** Equality of [sigT2] is itself a [sigT2] (forwards-reasoning version) *)
   Definition eq_existT2_uncurried {A : Type} {P Q : A -> Type}
              {u1 v1 : A} {u2 : P u1} {v2 : P v1} {u3 : Q u1} {v3 : Q v1}
-             (pqr : { p : u1 = v1
-                    & rew p in u2 = v2 & rew p in u3 = v3 })
+             (pqr : (sigma2 (fun p => rew p in u2 = v2) (fun p => rew p in u3 = v3)): Prop)
     : existT2 _ _ u1 u2 u3 = existT2 _ _ v1 v2 v3.
   Proof.
     destruct pqr as [p q r].
@@ -626,8 +627,7 @@ Section sigT2.
 
   (** Equality of [sigT2] is itself a [sigT2] (backwards-reasoning version) *)
   Definition eq_sigT2_uncurried {A : Type} {P Q : A -> Type} (u v : { a : A & P a & Q a })
-             (pqr : { p : u.1 = v.1
-                    & rew p in u.2 = v.2 & rew p in u.3 = v.3 })
+             (pqr : (sigma2 (fun p => rew p in u.2 = v.2) (fun p => rew p in u.3 = v.3)): Prop)
     : u = v.
   Proof.
     destruct u as [u1 u2 u3], v as [v1 v2 v3]; simpl in *.
@@ -646,7 +646,7 @@ Section sigT2.
              (q : rew p in u.2 = v.2)
              (r : rew p in u.3 = v.3)
     : u = v
-    := eq_sigT2_uncurried u v (existT2 _ _ p q r).
+    := eq_sigT2_uncurried u v (exist2_poly _ _ p q r).
 
   (** In order to have a performant [inversion_sigma], we define
       specialized versions for when we have constructors on one or
@@ -671,8 +671,7 @@ Section sigT2.
   Definition eq_sigT2_uncurried_iff {A P Q}
              (u v : { a : A & P a & Q a })
     : u = v
-      <-> { p : u.1 = v.1
-          & rew p in u.2 = v.2 & rew p in u.3 = v.3 }.
+      <-> sigma2 (fun p => rew p in u.2 = v.2) (fun p => rew p in u.3 = v.3).
   Proof.
     split; [ intro; subst; exists eq_refl; reflexivity | apply eq_sigT2_uncurried ].
   Defined.
@@ -748,7 +747,7 @@ Global Arguments eq_existT2_curried A P Q _ _ _ _ _ _ !p !q !r / .
 (** Equality for [sig2] *)
 Section sig2.
   (* We make [sig_of_sig2] a coercion so we can use [proj1], [proj2] on [sig2] *)
-  Local Coercion sig_of_sig2 : sig2 >-> sig.
+  Local Coercion sigma_of_sigma2 : sigma2 >-> sigma.
   Local Coercion ex_of_ex2 : ex2 >-> ex.
   Local Unset Implicit Arguments.
   (** Projecting an equality of a pair to equality of the first components *)
@@ -772,8 +771,7 @@ Section sig2.
   (** Equality of [sig2] is itself a [sig2] (fowards-reasoning version) *)
   Definition eq_exist2_uncurried {A} {P Q : A -> Prop}
              {u1 v1 : A} {u2 : P u1} {v2 : P v1} {u3 : Q u1} {v3 : Q v1}
-             (pqr : { p : u1 = v1
-                    | rew p in u2 = v2 & rew p in u3 = v3 })
+             (pqr : (sigma2 (fun p => rew p in u2 = v2) (fun p => rew p in u3 = v3)) : Prop)
     : exist2 _ _ u1 u2 u3 = exist2 _ _ v1 v2 v3.
   Proof.
     destruct pqr as [p q r].
@@ -783,8 +781,8 @@ Section sig2.
 
   (** Equality of [sig2] is itself a [sig2] (backwards-reasoning version) *)
   Definition eq_sig2_uncurried {A} {P Q : A -> Prop} (u v : { a : A | P a & Q a })
-             (pqr : { p : proj1_sig u = proj1_sig v
-                    | rew p in proj2_sig u = proj2_sig v & rew p in proj3_sig u = proj3_sig v })
+             (pqr : (sigma2 (fun p => rew p in proj2_sig u = proj2_sig v) 
+                           (fun p => rew p in proj3_sig u = proj3_sig v)):Prop)
     : u = v.
   Proof.
     destruct u as [u1 u2 u3], v as [v1 v2 v3]; simpl in *.
@@ -803,7 +801,7 @@ Section sig2.
              (q : rew p in proj2_sig u = proj2_sig v)
              (r : rew p in proj3_sig u = proj3_sig v)
     : u = v
-    := eq_sig2_uncurried u v (exist2 _ _ p q r).
+    := eq_sig2_uncurried u v (exist2_poly _ _ p q r).
 
   (** In order to have a performant [inversion_sigma], we define
       specialized versions for when we have constructors on one or
@@ -828,8 +826,7 @@ Section sig2.
   Definition eq_sig2_uncurried_iff {A P Q}
              (u v : { a : A | P a & Q a })
     : u = v
-      <-> { p : proj1_sig u = proj1_sig v
-          | rew p in proj2_sig u = proj2_sig v & rew p in proj3_sig u = proj3_sig v }.
+      <-> sigma2 (fun p => rew p in proj2_sig u = proj2_sig v) (fun p => rew p in proj3_sig u = proj3_sig v).
   Proof.
     split; [ intro; subst; exists eq_refl; reflexivity | apply eq_sig2_uncurried ].
   Defined.
@@ -921,7 +918,6 @@ Register sumbool as core.sumbool.type.
 (** [sumor] is an option type equipped with the justification of why
     it may not be a regular value *)
 
-#[universes(template)]
 Inductive sumor (A:Type) (B:Prop) : Type :=
   | inleft : A -> A + {B}
   | inright : B -> A + {B}
@@ -970,13 +966,16 @@ Section Choice_lemmas.
 
 End Choice_lemmas.
 
+Unset Universe Polymorphism.
+Unset Sort Polymorphism.
+
 Section Dependent_choice_lemmas.
 
   Variable X : Type.
   Variable R : X -> X -> Prop.
 
   Lemma dependent_choice :
-    (forall x:X, {y | R x y}) ->
+    (forall x:X, {y : X | R x y}) ->
     forall x0, {f : nat -> X | f O = x0 /\ forall n, R (f n) (f (S n))}.
   Proof.
     intros H x0.
