@@ -14,6 +14,9 @@ Require Import Notations.
 Require Import Ltac.
 Require Import Logic.
 
+Set Universe Polymorphism.    
+Set Sort Polymorphism.    
+
 (********************************************************************)
 (** * Datatypes with zero and one element *)
 
@@ -198,7 +201,6 @@ Register S as num.nat.S.
 
 (** [option A] is the extension of [A] with an extra element [None] *)
 
-#[universes(template)]
 Inductive option (A:Type) : Type :=
   | Some : A -> option A
   | None : option A.
@@ -210,6 +212,8 @@ Register option as core.option.type.
 Register Some as core.option.Some.
 Register None as core.option.None.
 
+
+
 Definition option_map (A B:Type) (f:A->B) (o : option A) : option B :=
   match o with
     | Some a => @Some B (f a)
@@ -218,7 +222,6 @@ Definition option_map (A B:Type) (f:A->B) (o : option A) : option B :=
 
 (** [sum A B], written [A + B], is the disjoint sum of [A] and [B] *)
 
-#[universes(template)]
 Inductive sum (A B:Type) : Type :=
   | inl : A -> sum A B
   | inr : B -> sum A B.
@@ -244,7 +247,6 @@ Register result as core.result.type.
 (** [prod A B], written [A * B], is the product of [A] and [B];
     the pair [pair A B a b] of [a] and [b] is abbreviated [(a,b)] *)
 
-#[universes(template)]
 Inductive prod (A B:Type) : Type :=
   pair : A -> B -> A * B
 
@@ -255,6 +257,11 @@ Add Printing Let prod.
 Notation "( x , y , .. , z )" := (pair .. (pair x y) .. z) : core_scope.
 
 Arguments pair {A B} _ _.
+
+Definition prod_rect@{i j k} := prod_poly@{Type Type Type Type ; i j k}.
+Definition prod_rec@{i j k} := prod_poly@{Type Type Type Type ; i j k}.
+Definition prod_ind@{i j k} := prod_poly@{Type Type Type Prop ; i j k}.
+Definition prod_sind@{i j k} := prod_poly@{Type Type Type SProp ; i j k}.
 
 Register prod as core.prod.type.
 Register pair as core.prod.intro.
@@ -314,7 +321,6 @@ Defined.
 
 (** Polymorphic lists and some operations *)
 
-#[universes(template)]
 Inductive list (A : Type) : Type :=
  | nil : list A
  | cons : A -> list A -> list A.
