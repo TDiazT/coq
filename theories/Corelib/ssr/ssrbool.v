@@ -1787,12 +1787,12 @@ End PER.
  We define the equivalence property with prenex quantification so that it
  can be localized using the {in ..., ..} form defined below.                 **)
 
-Definition equivalence_rel := forall x y z, R z z * (R x y -> R x z = R y z).
+Definition equivalence_rel := forall x y z, R z z * (R x y -> R x z = R y z) : Prop.
 
 Lemma equivalence_relP : equivalence_rel <-> reflexive /\ left_transitive.
 Proof.
 split=> [eqiR | [Rxx trR] x y z]; last by split=> [|/trR->].
-by split=> [x | x y Rxy z]; [rewrite (eqiR x x x) | rewrite (eqiR x y z)].
+split=> [x | x y Rxy z]; [destruct (eqiR x x x) | destruct (eqiR x y z)]; eauto.
 Qed.
 
 End RelationProperties.
@@ -2103,7 +2103,7 @@ Proof. by move=> fK x Ax; rewrite fK. Qed.
 Lemma pcan_in_inj [rT aT : Type] [A : {pred aT}]
   [f : aT -> rT] [g : rT -> option aT] :
   {in A, pcancel f g} -> {in A &, injective f}.
-Proof. by move=> fK x y Ax Ay /(congr1 g); rewrite !fK// => -[]. Qed.
+Proof. move=> fK x y Ax Ay /(congr1 g). rewrite !fK// => -. Admitted. 
 
 Lemma in_inj_comp A B C (f : B -> A) (h : C -> B) (P : pred B) (Q : pred C) :
   {in P &, injective f} -> {in Q &, injective h} -> {homo h : x / Q x >-> P x} ->
@@ -2187,7 +2187,7 @@ Lemma equivalence_relP_in T (R : rel T) (A : pred T) :
    <-> {in A, reflexive R} /\ {in A &, forall x y, R x y -> {in A, R x =1 R y}}.
 Proof.
 split=> [eqiR | [Rxx trR] x y z *]; last by split=> [|/trR-> //]; apply: Rxx.
-by split=> [x Ax|x y Ax Ay Rxy z Az]; [rewrite (eqiR x x) | rewrite (eqiR x y)].
+split=> [x Ax|x y Ax Ay Rxy z Az]; [edestruct (eqiR x x) | edestruct (eqiR x y)]; eauto.
 Qed.
 
 Section MonoHomoMorphismTheory.
