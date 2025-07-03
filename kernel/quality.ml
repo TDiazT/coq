@@ -117,6 +117,10 @@ struct
   let repr x = x
   let of_repr x = x
 
+  let is_unif = function 
+    | Unif _ -> true 
+    | _ -> false
+
   module Self = struct type nonrec t = t let compare = compare end
   module Set = CSet.Make(Self)
   module Map = CMap.Make(Self)

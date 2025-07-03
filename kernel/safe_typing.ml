@@ -1594,6 +1594,8 @@ let close_section senv =
       senv (List.rev rev_reimport)
   in
   (* Third phase: replay the discharged section contents *)
+  let filtered_qualities = Quality.QVar.Set.filter (fun q -> not @@ Quality.QVar.is_unif q) senv.qualities in
+  let senv = { senv with qualities = filtered_qualities } in
   let senv = push_quality_set qs senv in
   let cstrs = PolyConstraints.ContextSet.filter_out_constant_qualities cstrs in
   let senv = push_context_set ~strict:true QGraph.Rigid cstrs senv in
