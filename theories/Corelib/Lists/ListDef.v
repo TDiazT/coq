@@ -9,12 +9,17 @@
 (************************************************************************)
 
 Set Implicit Arguments.
-(* Set Universe Polymorphism. *)
+
+Set Universe Polymorphism.
+Set Sort Polymorphism.
 
 (******************************************************************)
 (** * Basics: definition of polymorphic lists and some operations *)
 (******************************************************************)
 
+Require Import Notations. 
+Require Import Logic. 
+Require Import Datatypes. 
 #[local] Open Scope bool_scope.
 Open Scope list_scope.
 
@@ -42,7 +47,7 @@ Section NatSeq.
 
   Fixpoint seq (start len:nat) : list nat :=
     match len with
-      | 0 => nil
+      | O => nil
       | S len => start :: seq (S start) len
     end.
 
@@ -83,7 +88,7 @@ Section Cutting.
 
   Fixpoint firstn (n:nat) (l:list A) : list A :=
     match n with
-      | 0 => nil
+      | O => nil
       | S n => match l with
                  | nil => nil
                  | a::l => a::(firstn n l)
@@ -92,7 +97,7 @@ Section Cutting.
 
   Fixpoint skipn (n:nat) (l:list A) : list A :=
     match n with
-      | 0 => l
+      | O => l
       | S n => match l with
                  | nil => nil
                  | a::l => skipn n l
@@ -142,4 +147,5 @@ Section Compare.
 
 End Compare.
 
+Unset Sort Polymorphism.
 Unset Universe Polymorphism.

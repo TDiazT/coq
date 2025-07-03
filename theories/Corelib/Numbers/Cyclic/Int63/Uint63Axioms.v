@@ -159,7 +159,7 @@ Definition subcarryc_def x y :=
 
 Axiom subcarryc_def_spec : forall x y, subcarryc x y = subcarryc_def x y.
 
-Definition diveucl_def x y := (div x y, PrimInt63.mod x y).
+Definition diveucl_def x y := pair (div x y) (PrimInt63.mod x y).
 
 Axiom diveucl_def_spec : forall x y, diveucl x y = diveucl_def x y.
 
