@@ -54,6 +54,8 @@ sig
   val repr : t -> repr
   val of_repr : repr -> t
 
+  val is_unif : t -> bool 
+
   module Set : CSig.SetS with type elt = t
 
   module Map : CMap.ExtS with type key = t and module Set := Set
