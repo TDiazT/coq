@@ -10,8 +10,33 @@
 
 Require Export CarryType.
 
+(* We use non sort/univ poly definition for bool and prod to get an efficient representation in memory *)
+
+#[universes(polymorphic=no)]
+Record prodPrim (A B : Type) : Type := pair { fstPrim : A ; sndPrim : B}.
+
+Arguments fstPrim {_ _}.
+Arguments sndPrim {_ _}.
+Arguments pair {_ _}.
+
+
+(* Coercion boolPrim_of_bool : bool >-> boolPrim *)
+
+Definition sigmaR_of_prodPrim A B : prodPrim A B -> prod A B :=
+  fun p => (fstPrim p , sndPrim p).
+
+Coercion sigmaR_of_prodPrim : prodPrim >-> prod.
+
+Definition prod_of_prodPrim A B : prodPrim A B -> prod A B :=
+  fun p => (fstPrim p , sndPrim p).
+
+Coercion prod_of_prodPrim : prodPrim >-> prod.
+
+(* Register data types used by primitive operations *)
+
 Register bool as kernel.ind_bool.
-Register prod as kernel.ind_pair.
+Register prodPrim as kernel.ind_pair.
+
 Register carry as kernel.ind_carry.
 Register comparison as kernel.ind_cmp.
 
@@ -30,7 +55,6 @@ Definition parser (x : pos_neg_int63) : option int :=
   | Pos p => Some p
   | Neg _ => None
   end.
-
 
 Declare Scope int63_scope.
 Module Import Int63NotationsInternalA.

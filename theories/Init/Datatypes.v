@@ -28,6 +28,7 @@ Register Empty_set as core.Empty_set.type.
 
 (** [unit] is a singleton datatype with sole inhabitant [tt] *)
 
+#[universes(polymorphic=no)]
 Inductive unit : Set :=
     tt : unit.
 
@@ -39,6 +40,7 @@ Register tt as core.unit.tt.
 
 (** [bool] is the datatype of the boolean values [true] and [false] *)
 
+#[universes(polymorphic=no)]
 Inductive bool : Set :=
   | true : bool
   | false : bool.
@@ -73,17 +75,22 @@ Arguments ReflectF : clear implicits.
 
 (** Basic boolean operators *)
 
+#[universes(polymorphic=no)]
 Definition andb (b1 b2:bool) : bool := if b1 then b2 else false.
 
+#[universes(polymorphic=no)]
 Definition orb (b1 b2:bool) : bool := if b1 then true else b2.
 
+#[universes(polymorphic=no)]
 Definition implb (b1 b2:bool) : bool := if b1 then b2 else true.
 
+#[universes(polymorphic=no)]
 Definition xorb (b1 b2:bool) : bool :=
   if b1 then
     if b2 then false else true
   else b2.
 
+#[universes(polymorphic=no)]
 Definition negb (b:bool) := if b then false else true.
 
 Infix "||" := orb : bool_scope.
@@ -97,6 +104,7 @@ Register negb as core.bool.negb.
 
 (** Basic properties of [andb] *)
 
+#[universes(polymorphic=no)]
 Lemma andb_prop (a b:bool) : andb a b = true -> a = true /\ b = true.
 Proof.
   destruct a, b; repeat split; assumption.
@@ -106,6 +114,7 @@ Hint Resolve andb_prop: bool.
 
 Register andb_prop as core.bool.andb_prop.
 
+#[universes(polymorphic=no)]
 Lemma andb_true_intro (b1 b2:bool) :
   b1 = true /\ b2 = true -> andb b1 b2 = true.
 Proof.
@@ -363,6 +372,7 @@ Infix "++" := app (right associativity, at level 60) : list_scope.
 (********************************************************************)
 (** * The comparison datatype *)
 
+#[universes(polymorphic=no)]
 Inductive comparison : Set :=
   | Eq : comparison
   | Lt : comparison

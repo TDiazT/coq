@@ -291,7 +291,7 @@ Section ProdSigT.
 
   Variable A B : Type.
 
-  Definition sigma_of_prod (p : A * B) := (fst p; snd p).
+  Definition sigma_of_prod (p : prod A B) := (fst p; snd p).
   Definition prod_of_sigma (s : @sigma A  (fun _=> B)) := (s.1 , s.2).
 
   Lemma sigma_prod_sigma p : sigma_of_prod (prod_of_sigma p) = p.
@@ -903,6 +903,7 @@ Global Arguments eq_exist2_curried A P Q _ _ _ _ _ _ !p !q !r / .
 (** [sumbool] is a boolean type equipped with the justification of
     their value *)
 
+#[universes(polymorphic=no)]
 Inductive sumbool (A B:Prop) : Set :=
   | left : A -> {A} + {B}
   | right : B -> {A} + {B}
