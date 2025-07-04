@@ -2887,7 +2887,6 @@ let interp_context_evars_gen ?(program_mode=false) ?(unconstrained_sorts = false
        context being interpreted *)
      extract_ids env in
   let int_env = default_internalization_env ids (bound_univs sigma) impl_env in
-  (* TODO: Missing sort poly *)
   let flags = { Pretyping.all_no_fail_flags with program_mode; unconstrained_sorts; sort_polymorphic = sort_poly } in
   let (int_env, (env, sigma, bl, impls, locs)) =
     List.fold_left
