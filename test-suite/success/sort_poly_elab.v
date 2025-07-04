@@ -1,5 +1,6 @@
 Set Universe Polymorphism.
 Set Sort Polymorphism.
+Set Printing Universes.
 
 Module Reduction.
 
@@ -21,7 +22,7 @@ Module Reduction.
   Check eq_refl : q2 = tU.
 
   Definition q3 := Eval native_compute in qU.
-  Check eq_refl : q3 = tU. 
+  Check eq_refl : q3 = tU.
 
   Definition exfalso (A:Type) (H:False) : A := match H with end.
   (* exfalso@{α | u |} : forall A : Type@{α | _}, False -> A *)
@@ -46,8 +47,7 @@ Module Conversion.
   Inductive Box (A:Type) := box (_:A).
   (* Box@{α α0 | u |} (A : Type@{α | u}) : Type@{α0 | u} *)
 
-  Check Box@{Type Type|Set}.
-  
+
   Definition t1 (A:Type) (x y : A) := box _ x.
   (* t1@{α α0 | u |} : forall (A : Type@{α | u}) (_ : A) (_ : A), Box@{α α0 | u} A *)
   Definition t2 (A:Type) (x y : A) := box _ y.
@@ -57,7 +57,7 @@ Module Conversion.
   (* t1'@{α | u |} : forall (A : Type@{α | u}) (_ : A) (_ : A), A *)
   Definition t2' (A:Type) (x y : A) := y.
 
-  Fail Check eq_refl : t1 nat = t2 nat. 
+  Fail Check eq_refl : t1 nat = t2 nat.
   Fail Check eq_refl : t1' nat = t2' nat.
 
   Check fun A:SProp => eq_refl : t1 A = t2 A.
@@ -104,7 +104,7 @@ Module Inference.
   (* implicit instance of zog gets a variable which then gets unified with s from the type of A *)
   Definition zag (A:Type) := zog A.
   (* zag@{α | u |} : Type@{α | _} -> Type@{α | _} *)
-  
+
   (* implicit type of A gets unified to Type@{s|u} *)
   Definition zig A := zog A.
   (* zig@{α | u |} : Type@{α | _} -> Type@{α | _} *)
@@ -116,7 +116,11 @@ End Inference.
 Module Inductives.
   Inductive foo1 : Type := .
   (* foo1@{α | u |} : Type@{α | _} :=  . *)
+  Check foo1_poly.
   Fail Check foo1_sind.
+
+  Definition foo1_rect@{u1 u2} := foo1_poly@{Type Type|u1 u2}.
+  Definition foo1_ind@{u1 u2} := foo1_poly@{Type Prop|u1 u2}.
 
   (* Fails if constraints cannot be extended *)
   Fail Definition foo1_False@{s|+|} (x : foo1@{s|_}) : False := match x return False with end.
@@ -124,8 +128,8 @@ Module Inductives.
 
   Definition foo1_False@{s|+|+} (x : foo1@{s|_}) : False := match x return False with end.
   (* s | u |= s ~> Prop *)
-  
-  Definition foo1_False' (x : foo1) : False := match x return False with end. 
+
+  Definition foo1_False' (x : foo1) : False := match x return False with end.
   (* foo1_False'@{α | u |} : foo1@{α | u} -> False *)
   (* α | u |= α ~> Prop *)
 
@@ -218,7 +222,7 @@ Module Inductives.
   β0 that is not allowed. *)
 
   Fail #[warnings="-non-primitive-record,-cannot-define-projection"]
-    Record R5 (A:Type) : SProp := { R5f1 : A}. 
+    Record R5 (A:Type) : SProp := { R5f1 : A}.
   (* This expression would enforce an elimination constraint between SProp and
   β0 that is not allowed. *)
 
@@ -234,7 +238,7 @@ Module Inductives.
   (* Elimination constraints are accumulated by fields, even on independent fields *)
   #[projections(primitive=no)] Record R7 (A:Type) := { R7f1 : A; R7f2 : nat }.
   (* Record R7@{α α0 | u |} (A : Type@{α | u}) : Type@{α0 | max(Set,u)}  *)
-  (* R7f1@{α α0 | u |} : forall A : Type@{α | u}, R7@{α α0 | u} A -> A 
+  (* R7f1@{α α0 | u |} : forall A : Type@{α | u}, R7@{α α0 | u} A -> A
       α α0 | u |= α0 ~> α *)
   (* R7f2@{α α0 | u |} : forall A : Type@{α | u}, R7@{α α0 | u} A -> nat
       α α0 | u |= α0 ~> α
@@ -258,7 +262,6 @@ Module Inductives.
     := pair : forall x : A, B x -> sigma A B.
   (* Inductive sigma@{α α0 α1 | u u0 |} (A : Type@{α | u}) (B : A -> Type@{α0 | u0}) : Type@{α1 | max(u,u0)} *)
 
-  (* FIXME: Printing of sorts is still in weird order *)
   Definition sigma_srect A B
     (P : sigma A B -> Type)
     (H : forall x b, P (pair _ _ x b))
@@ -305,13 +308,13 @@ Module Inductives.
 
   (* sort polymorphic exists (we could also make B sort poly)
      can't be a primitive record since the first projection isn't defined at all sorts *)
-  Inductive sexists (A:Type) (B:A -> Prop) : Prop 
+  Inductive sexists (A:Type) (B:A -> Prop) : Prop
     := sexist : forall a:A, B a -> sexists A B.
 
   (* we can eliminate to Prop *)
   Check sexists_ind.
 
-  
+
   Definition π1 {A:Type} {P:A -> Type} (p : sigma@{_ _ Type|_ _} A P) : A :=
     match p return A with pair _ _ a _ => a end.
 
@@ -322,7 +325,7 @@ Set Universe Polymorphism.
 
 Inductive sigma (A:Type) (P:A -> Type) : Type
   :=  exist : forall x:A, P x -> sigma A P.
-  
+
 Inductive sum@{sl sr s|ul ur|} (A : Type@{sl|ul}) (B : Type@{sr|ur}) : Type@{s|max(ul,ur)} :=
 | inl : A -> sum A B
 | inr : B -> sum A B.
@@ -345,3 +348,17 @@ Definition idV@{sl sr s s'|ul ur| ul <= ur +} {A : Type@{sl|ul}} {B : Type@{sr|u
   end.
 
 Fail Compute idV@{Prop Type Prop Type|Set Set} (inl I).
+
+(* Interactive definition *)
+Inductive FooNat :=
+| FO : FooNat
+| FS : FooNat -> FooNat.
+
+Definition Foo (n : FooNat) : FooNat.
+  destruct n.
+  - exact FO.
+  - exact FO.
+Defined.
+
+Check Foo@{Type Prop|}.
+Fail Check Foo@{Prop Type|}.
