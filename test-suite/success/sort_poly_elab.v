@@ -1,5 +1,6 @@
 Set Universe Polymorphism.
 Set Sort Polymorphism.
+Set Printing Universes.
 
 Inductive sum@{sl sr s;ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) : Type@{s;max(ul,ur)} :=
 | inl : A -> sum A B
@@ -287,7 +288,11 @@ Check (match true@{Test;Set} return ?[P] with true => tt | false => tt end).
 Module Inductives.
   Inductive foo1 : Type := .
   (* foo1@{α | u |} : Type@{α | _} :=  . *)
+  Check foo1_poly.
   Fail Check foo1_sind.
+
+  Definition foo1_rect@{u1 u2} := foo1_poly@{Type Type|u1 u2}.
+  Definition foo1_ind@{u1 u2} := foo1_poly@{Type Prop|u1 u2}.
 
   (* Fails if constraints cannot be extended *)
   Fail Definition foo1_False@{s|+|} (x : foo1@{s|_}) : False := match x return False with end.
@@ -429,7 +434,6 @@ Module Inductives.
     := pair : forall x : A, B x -> sigma A B.
   (* Inductive sigma@{α α0 α1 | u u0 |} (A : Type@{α | u}) (B : A -> Type@{α0 | u0}) : Type@{α1 | max(u,u0)} *)
 
-  (* FIXME: Printing of sorts is still in weird order *)
   Definition sigma_srect A B
     (P : sigma A B -> Type)
     (H : forall x b, P (pair _ _ x b))
@@ -517,3 +521,17 @@ Definition idV@{sl sr s s'|ul ur| ul <= ur +} {A : Type@{sl|ul}} {B : Type@{sr|u
   end.
 
 Fail Compute idV@{Prop Type Prop Type|Set Set} (inl I).
+
+(* Interactive definition *)
+Inductive FooNat :=
+| FO : FooNat
+| FS : FooNat -> FooNat.
+
+Definition Foo (n : FooNat) : FooNat.
+  destruct n.
+  - exact FO.
+  - exact FO.
+Defined.
+
+Check Foo@{Type Prop|}.
+Fail Check Foo@{Prop Type|}.
