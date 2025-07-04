@@ -469,7 +469,7 @@ Delimit Scope bool_scope with B.
 Open Scope bool_scope.
 
 (**  An alternative to xorb that behaves somewhat better wrt simplification. **)
-Definition addb b := if b then negb else id.
+Definition addb b := if b then negb else (@Datatypes.id bool).
 
 (**  Notation for && and || is declared in Init.Datatypes.  **)
 Notation "~~ b" := (negb b) : bool_scope.
@@ -501,7 +501,7 @@ Definition notF := not_false_is_true.
  We generally take NEGATION as the standard form of a false condition:
  negative boolean hypotheses should be of the form ~~ b, rather than ~ b or
  b = false, as much as possible.                                             **)
-
+(*
 Lemma negbT b : b = false -> ~~ b.          Proof. by case: b. Qed.
 Lemma negbTE b : ~~ b -> b = false.         Proof. by case: b. Qed.
 Lemma negbF b : (b : bool) -> ~~ b = false. Proof. by case: b. Qed.
@@ -2387,3 +2387,4 @@ End inj_can_sym_in_on.
 Arguments inj_can_sym_in_on {aT rT aD rD f g}.
 Arguments inj_can_sym_on {aT rT aD f g}.
 Arguments inj_can_sym_in {aT rT rD f g}.
+*)

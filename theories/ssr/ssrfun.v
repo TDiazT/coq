@@ -12,6 +12,10 @@
 
 (** #<style> .doc { font-family: monospace; white-space: pre; } </style># **)
 
+Require Import Notations.
+Require Import Ltac.
+Require Import Logic.
+Require Import Datatypes.
 Require Import ssreflect.
 
 
@@ -460,7 +464,7 @@ Notation "f1 =1 f2" := (eqfun f1 f2) : type_scope.
 Notation "f1 =1 f2 :> A" := (f1 =1 (f2 : A)) : type_scope.
 Notation "f1 =2 f2" := (eqrel f1 f2) : type_scope.
 Notation "f1 =2 f2 :> A" := (f1 =2 (f2 : A)) : type_scope.
-
+(*
 Section Composition.
 
 Variables A B C : Type.
@@ -878,3 +882,4 @@ Definition idempotent_fun (U : Type) (f : U -> U) := f \o f =1 f.
 Lemma inr_inj {A B} : injective (@inr A B). Admitted. (* Proof. by move=> ? ? []. Qed.*)
 
 Lemma inl_inj {A B} : injective (@inl A B). Admitted. (* Proof. by move=> ? ? []. Qed.*)
+*)
