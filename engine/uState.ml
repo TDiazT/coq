@@ -46,7 +46,7 @@ module QState : sig
   val eliminates_to_prop : elt -> t -> bool
   val undefined : t -> QVar.Set.t
   val collapse_elim_to_prop : to_prop:bool -> t -> t
-  val collapse : ?except:QVar.Set.t -> t -> t
+  val collapse : ?except:QVar.Set.t -> ?to_type:bool -> t -> t
   val pr : (QVar.t -> Libnames.qualid option) -> t -> Pp.t
   val of_set : QVar.Set.t -> t
   val of_elims : QGraph.t -> t
@@ -109,8 +109,9 @@ let set q qv m =
            then (QGraph.enforce_eq (QVar qv) (QVar q) m.elims,QSet.add qv m.elim_to_prop)
            else (m.elims,m.elim_to_prop)
          in
-         Some { rigid = m.rigid; qmap = QMap.add q (Some (QVar qv)) m.qmap; elims
-                ; initial_elims = m.initial_elims; elim_to_prop }
+         Some { m with
+                qmap = QMap.add q (Some (QVar qv)) m.qmap; elims
+                ;  elim_to_prop }
   | QConstant qc as qv ->
     if qc == QSProp && eliminates_to_prop q m then None
     else if QSet.mem q m.rigid then None
@@ -123,10 +124,9 @@ let set_elim_to_prop q m =
   let q = match q with QVar q -> q | QConstant _ -> assert false in
   if QSet.mem q m.rigid then None
   else
-    Some { rigid = m.rigid; qmap = m.qmap;
+    Some { m with
            elims = QGraph.enforce_eliminates_to QGraph.Internal (QVar q) qprop m.elims;
-           elim_to_prop = QSet.add q m.elim_to_prop;
-           initial_elims = m.initial_elims }
+           elim_to_prop = QSet.add q m.elim_to_prop }
 
 let unify_quality ~fail c q1 q2 local = match q1, q2 with
 | QConstant QType, QConstant QType
@@ -137,9 +137,9 @@ let unify_quality ~fail c q1 q2 local = match q1, q2 with
   | Some local -> local
   | None -> fail ()
   end
-| QVar qv1, QVar qv2 -> begin match set qv1 q2 local with
+| QVar qv1, QVar qv2 -> begin match set qv2 q1 local with
     | Some local -> local
-    | None -> match set qv2 q1 local with
+    | None -> match set qv1 q2 local with
       | Some local -> local
       | None -> fail ()
   end
@@ -239,13 +239,22 @@ let collapse_elim_to_prop ~to_prop m =
          )
          m.qmap m
 
-let collapse ?(except=QSet.empty) m =
+let collapse ?(except=QSet.empty) ?(to_type = true) m =
+  let free_qualities = QMap.fold (fun q v fqs -> if Option.is_empty v then QSet.add q fqs else fqs) m.qmap QSet.empty in
+  let eliminates_to q q' =
+    not @@ QVar.equal q q' && QGraph.eliminates_to m.elims (QVar q') (QVar q) &&
+      not @@ QSet.mem q' m.elim_to_prop
+  in
   QMap.fold (fun q v m ->
-           match v with
-           | Some _ -> m
-           | None -> if QSet.mem q m.rigid || QSet.mem q except then m
-                    else Option.get (set q qtype m))
-         m.qmap m
+      match v with
+      | Some _ -> m
+      | None -> if QSet.mem q m.rigid || QSet.mem q except then m
+                else if QSet.mem q m.elim_to_prop
+                     then if QSet.exists (eliminates_to q) free_qualities
+                          then Option.get (set q qprop m)
+                          else Option.get (set q qtype m)
+                     else if to_type then Option.get (set q qtype m) else m)
+    m.qmap m
 
 let pr prqvar_opt ({ qmap; elims; rigid } as m) =
   let open Pp in
@@ -1365,8 +1374,8 @@ let collapse_elim_to_prop_sort_variables ~to_prop uctx =
   let sorts = QState.collapse_elim_to_prop ~to_prop uctx.sort_variables in
   normalize_quality_variables { uctx with sort_variables = sorts }
 
-let collapse_sort_variables ?except uctx =
-  let sorts = QState.collapse ?except uctx.sort_variables in
+let collapse_sort_variables ?except ?(to_type = true) uctx =
+  let sorts = QState.collapse ?except ~to_type uctx.sort_variables in
   normalize_quality_variables { uctx with sort_variables = sorts }
 
 let minimize uctx =

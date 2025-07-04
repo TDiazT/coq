@@ -15,7 +15,7 @@ Export Morphisms.ProperNotations.
 Require Corelib.ssr.ssrsetoid.
 
 (** For backward compatibility *)
-
+Set Universe Polymorphism.
 Definition Setoid_Theory := @Equivalence.
 Definition Build_Setoid_Theory := @Build_Equivalence.
 
