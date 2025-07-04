@@ -375,6 +375,9 @@ End universal_quantification.
     as it expresses that [x] and [y] are equal iff every property on
     [A] which is true of [x] is also true of [y] *)
 
+Set Universe Polymorphism.    
+Set Sort Polymorphism.    
+
 Inductive eq (A:Type) (x:A) : A -> Prop :=
     eq_refl : x = x :>A
 
@@ -402,6 +405,12 @@ Register eq as core.eq.type.
 Register eq_refl as core.eq.refl.
 Register eq_ind as core.eq.ind.
 Register eq_rect as core.eq.rect.
+
+Definition eq_poly [A : Type] (x : A) (P : A -> Type) (f : P x) :
+  forall a : A, x = a -> P a :=
+fun _ e => match e with eq_refl => f end.
+
+Arguments eq_poly [A] x P f _ e.
 
 Section Logic_lemmas.
 
@@ -474,10 +483,10 @@ Section Logic_lemmas.
 End Logic_lemmas.
 
 Module EqNotations.
-  Notation "'rew' H 'in' H'" := (eq_rect _ _ H' _ H)
+  Notation "'rew' H 'in' H'" := (eq_poly _ _ H' _ H)
     (at level 10, H' at level 10,
      format "'[' 'rew'  H  in  '/' H' ']'").
-  Notation "'rew' [ P ] H 'in' H'" := (eq_rect _ P H' _ H)
+  Notation "'rew' [ P ] H 'in' H'" := (eq_poly _ P H' _ H)
     (at level 10, H' at level 10,
      format "'[' 'rew'  [ P ]  '/    ' H  in  '/' H' ']'").
   Notation "'rew' <- H 'in' H'" := (eq_rect_r _ H' H)
@@ -486,9 +495,9 @@ Module EqNotations.
   Notation "'rew' <- [ P ] H 'in' H'" := (eq_rect_r P H' H)
     (at level 10, H' at level 10,
      format "'[' 'rew'  <-  [ P ]  '/    ' H  in  '/' H' ']'").
-  Notation "'rew' -> H 'in' H'" := (eq_rect _ _ H' _ H)
+  Notation "'rew' -> H 'in' H'" := (eq_poly _ _ H' _ H)
     (at level 10, H' at level 10, only parsing).
-  Notation "'rew' -> [ P ] H 'in' H'" := (eq_rect _ P H' _ H)
+  Notation "'rew' -> [ P ] H 'in' H'" := (eq_poly _ P H' _ H)
     (at level 10, H' at level 10, only parsing).
 
   Notation "'rew' 'dependent' H 'in' H'"
@@ -614,6 +623,7 @@ Proof.
   destruct 1; destruct 1; destruct 1; destruct 1; destruct 1; reflexivity.
 Qed.
 
+
 Theorem f_equal_compose A B C (a b:A) (f:A->B) (g:B->C) (e:a=b) :
   f_equal g (f_equal f e) = f_equal (fun a => g (f a)) e.
 Proof.
@@ -622,30 +632,36 @@ Defined.
 
 (** The groupoid structure of equality *)
 
+
 Theorem eq_trans_refl_l A (x y:A) (e:x=y) : eq_trans eq_refl e = e.
 Proof.
   destruct e. reflexivity.
 Defined.
+
 
 Theorem eq_trans_refl_r A (x y:A) (e:x=y) : eq_trans e eq_refl = e.
 Proof.
   destruct e. reflexivity.
 Defined.
 
+
 Theorem eq_sym_involutive A (x y:A) (e:x=y) : eq_sym (eq_sym e) = e.
 Proof.
   destruct e; reflexivity.
 Defined.
+
 
 Theorem eq_trans_sym_inv_l A (x y:A) (e:x=y) : eq_trans (eq_sym e) e = eq_refl.
 Proof.
   destruct e; reflexivity.
 Defined.
 
+
 Theorem eq_trans_sym_inv_r A (x y:A) (e:x=y) : eq_trans e (eq_sym e) = eq_refl.
 Proof.
   destruct e; reflexivity.
 Defined.
+
 
 Theorem eq_trans_assoc A (x y z t:A) (e:x=y) (e':y=z) (e'':z=t) :
   eq_trans e (eq_trans e' e'') = eq_trans (eq_trans e e') e''.
@@ -653,11 +669,13 @@ Proof.
   destruct e''; reflexivity.
 Defined.
 
+
 Theorem rew_map A B (P:B->Type) (f:A->B) x1 x2 (H:x1=x2) (y:P (f x1)) :
   rew [fun x => P (f x)] H in y = rew f_equal f H in y.
 Proof.
   destruct H; reflexivity.
 Defined.
+
 
 Theorem eq_trans_map {A B} {x1 x2 x3:A} {y1:B x1} {y2:B x2} {y3:B x3}
   (H1:x1=x2) (H2:x2=x3) (H1': rew H1 in y1 = y2) (H2': rew H2 in y2 = y3) :
@@ -666,11 +684,13 @@ Proof.
   destruct H2. exact (eq_trans H1' H2').
 Defined.
 
+
 Lemma map_subst {A} {P Q:A->Type} (f : forall x, P x -> Q x) {x y} (H:x=y) (z:P x) :
   rew H in f x z = f y (rew H in z).
 Proof.
   destruct H. reflexivity.
 Defined.
+
 
 Lemma map_subst_map {A B} {P:A->Type} {Q:B->Type} (f:A->B) (g : forall x, P x -> Q (f x))
   {x y} (H:x=y) (z:P x) :
@@ -679,10 +699,12 @@ Proof.
   destruct H. reflexivity.
 Defined.
 
+
 Lemma rew_swap A (P:A->Type) x1 x2 (H:x1=x2) (y1:P x1) (y2:P x2) : rew H in y1 = y2 -> y1 = rew <- H in y2.
 Proof.
   destruct H. trivial.
 Defined.
+
 
 Lemma rew_compose A (P:A->Type) x1 x2 x3 (H1:x1=x2) (H2:x2=x3) (y:P x1) :
   rew H2 in rew H1 in y = rew (eq_trans H1 H2) in y.
@@ -692,6 +714,7 @@ Defined.
 
 (** Extra properties of equality *)
 
+
 Theorem eq_id_comm_l A (f:A->A) (Hf:forall a, a = f a) a : f_equal f (Hf a) = Hf (f a).
 Proof.
   unfold f_equal.
@@ -700,6 +723,7 @@ Proof.
   destruct (Hf a).
   reflexivity.
 Defined.
+
 
 Theorem eq_id_comm_r A (f:A->A) (Hf:forall a, f a = a) a : f_equal f (Hf a) = Hf (f a).
 Proof.

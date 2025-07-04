@@ -12,6 +12,10 @@
 
 (** #<style> .doc { font-family: monospace; white-space: pre; } </style># **)
 
+Require Import Notations.
+Require Import Ltac.
+Require Import Logic.
+Require Import Datatypes.
 Require Import ssrmatching.
 Declare ML Module "rocq-runtime.plugins.ssreflect".
 
@@ -402,7 +406,6 @@ Ltac ssrdone0 :=
    | match goal with H : ~ _ |- _ => solve [case H; trivial] end ].
 
 (**  To unlock opaque constants.  **)
-#[universes(template)]
 Structure unlockable T v := Unlockable {unlocked : T; _ : unlocked = v}.
 Lemma unlock T x C : @unlocked T x C = x. Proof. by case: C. Qed.
 
@@ -471,7 +474,7 @@ by apply: IHn => B e He; apply: k_P => f x1 x2 <-.
 Qed.
 
 Lemma ssr_congr_arrow Plemma Pgoal : Plemma = Pgoal -> Plemma -> Pgoal.
-Proof. by move->. Qed.
+Proof. intros e x. eapply (eq_rect_r (fun A => A) x (eq_sym e)). Qed.
 Arguments ssr_congr_arrow : clear implicits.
 
 Register nary_congruence as plugins.ssreflect.nary_congruence.
