@@ -469,7 +469,7 @@ let compute_projections (_, i as ind) mib =
   Array.of_list (List.rev pbs)
 
 let build_inductive env ~sec_univs names prv univs template variance
-    paramsctxt kn isrecord isfinite inds nmr recargs =
+    paramsctxt kn is_record isfinite inds nmr recargs recheck_at_eta_conv = 
   let ntypes = Array.length inds in
   (* Compute the set of used section variables *)
   let hyps = used_section_variables env inds in
@@ -557,12 +557,12 @@ let build_inductive env ~sec_univs names prv univs template variance
       mind_typing_flags = Environ.typing_flags env;
     }
   in
-  let record_info = match isrecord with
+  let record_info = match is_record with
   | Some (Some rid) ->
     (** The elimination criterion ensures that all projections can be defined. *)
     let map i id =
       let labs, rs, projs = compute_projections (kn, i) mib in
-      (id, labs, rs, projs)
+      (id, labs, rs, projs, recheck_at_eta_conv)
     in
     PrimRecord (Array.mapi map rid)
   | Some None -> FakeRecord
@@ -575,7 +575,7 @@ let build_inductive env ~sec_univs names prv univs template variance
 
 let check_inductive env ~sec_univs kn mie =
   (* First type-check the inductive definition *)
-  let (env_ar_par, univs, template, variance, record, why_not_prim_record, paramsctxt, inds) =
+  let (env_ar_par, univs, template, variance, record, why_not_prim_record, recheck_at_eta_conv, paramsctxt, inds) =
     IndTyping.typecheck_inductive env ~sec_univs mie
   in
   (* Then check positivity conditions *)
@@ -591,6 +591,6 @@ let check_inductive env ~sec_univs kn mie =
   let mib =
     build_inductive env ~sec_univs names mie.mind_entry_private univs template variance
       paramsctxt kn record mie.mind_entry_finite
-      inds nmr recargs
+      inds nmr recargs recheck_at_eta_conv
   in
   mib, why_not_prim_record

@@ -318,7 +318,7 @@ and nf_stk ?from:(from=0) env sigma c t stk  =
     let ty = match mib.mind_record with
     | NotRecord | FakeRecord -> assert false
     | PrimRecord infos ->
-      let _, _, _, tys = infos.(snd ind) in
+      let _, _, _, tys, _ = infos.(snd ind) in
       let ty = Vars.subst_instance_constr (EConstr.Unsafe.to_instance u) tys.(p) in
       substl (c :: List.rev_map EConstr.Unsafe.to_constr pars) ty
     in

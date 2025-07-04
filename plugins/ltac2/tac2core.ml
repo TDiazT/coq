@@ -1300,6 +1300,7 @@ let () =
   define "ind_get_projections" (ind_data @-> ret (option (array projection)))
   @@ fun (ind,mib) ->
   Declareops.inductive_make_projections ind mib
+  |> fst
   |> Option.map (Array.map (fun (p,_) -> Projection.make p false))
 
 (** Proj *)

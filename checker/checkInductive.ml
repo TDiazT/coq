@@ -28,7 +28,7 @@ let to_entry mind (mb:mutual_inductive_body) : Entries.mutual_inductive_entry =
   let nparams = List.length mb.mind_params_ctxt in (* include letins *)
   let mind_entry_record = match mb.mind_record with
     | NotRecord -> None | FakeRecord -> Some None
-    | PrimRecord data -> Some (Some (Array.map (fun (x,_,_,_) -> x) data))
+    | PrimRecord data -> Some (Some (Array.map (fun (x,_,_,_, _) -> x) data))
   in
   let template = Option.map template_univ_entry mb.mind_template in
   let mind_entry_universes = match mb.mind_universes with
@@ -186,7 +186,7 @@ let check_same_record r1 r2 = match r1, r2 with
   | PrimRecord r1, PrimRecord r2 ->
     (* The kernel doesn't care about the names, we just need to check
        that the saved types are correct. *)
-    Array.for_all2 (fun (_,_,r1,tys1) (_,_,r2,tys2) ->
+    Array.for_all2 (fun (_,_,r1,tys1, _) (_,_,r2,tys2, _) ->
         Array.equal Sorts.relevance_equal r1 r2 &&
         Array.equal Constr.equal tys1 tys2)
       r1 r2

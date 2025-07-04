@@ -458,7 +458,7 @@ let v_finite = v_enum "recursivity_kind" 3
 
 let v_record_info =
   v_sum "record_info" 2
-    [| [| v_array (v_tuple "record" [| v_id; v_array v_id; v_array v_relevance; v_array v_constr |]) |] |]
+    [| [| v_array (v_tuple "record" [| v_id; v_array v_id; v_array v_relevance; v_array v_constr ; v_bool |]) |] |]
 
 let v_ind_pack = v_tuple "mutual_inductive_body"
   [|v_array v_one_ind;

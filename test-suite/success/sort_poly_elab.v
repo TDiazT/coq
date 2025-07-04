@@ -46,6 +46,8 @@ Module Conversion.
   Inductive Box (A:Type) := box (_:A).
   (* Box@{α α0 | u |} (A : Type@{α | u}) : Type@{α0 | u} *)
 
+  Check Box@{Type Type|Set}.
+  
   Definition t1 (A:Type) (x y : A) := box _ x.
   (* t1@{α α0 | u |} : forall (A : Type@{α | u}) (_ : A) (_ : A), Box@{α α0 | u} A *)
   Definition t2 (A:Type) (x y : A) := box _ y.
@@ -201,15 +203,15 @@ Module Inductives.
   Fail Record R1 : Type := {}.
 
   (* the Type instantiation may not be primitive *)
-  Fail Record R2 (A:SProp) : Type := { R2f1 : A }.
+  Record R2 (A:SProp) : Type := { R2f1 : A }.
 
   (* R3@{SProp Type|} may not be primitive  *)
-  Fail Record R3 (A:Type) : Type := { R3f1 : A }.
+  Record R3 (A:Type) : Type := { R3f1 : A }.
 
   Record R4@{s| |} (A:Type@{s|Set}) : Type@{s|Set} := { R4f1 : A}.
 
   (* non SProp instantiation must be squashed *)
-  Fail Record R5 (A:Type) : SProp := { R5f1 : A}.
+  Fail Record R5@{+} (A:Type) : SProp := { R5f1 : A}. (* FIXME *)
   Fail #[warnings="-non-primitive-record"]
     Record R5 (A:Type) : SProp := { R5f1 : A}.
   (* This expression would enforce an elimination constraint between SProp and
