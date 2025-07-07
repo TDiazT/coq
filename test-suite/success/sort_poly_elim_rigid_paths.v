@@ -4,8 +4,8 @@ Section CheckRigidPaths.
   Constraint s -> s'.
   Constraint s' -> s''.
 
-  Polymorphic Axiom ad@{s;u} : forall A : Type@{s;u}, A.
-  Polymorphic Definition t@{s s';u v|s -> s'} (A : Type@{s;u}) (B : Type@{s';v}) : A := ad A.
+  Polymorphic Axiom ad@{s;u} : forall A : 𝒰@{s;u}, A.
+  Polymorphic Definition t@{s s';u v|s -> s'} (A : 𝒰@{s;u}) (B : 𝒰@{s';v}) : A := ad A.
 
   (* This should succeed even though [s -> s''] is not declared *)
   Check t@{s s'';Set Set}.
