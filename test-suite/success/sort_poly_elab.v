@@ -2,88 +2,7 @@ Set Universe Polymorphism.
 Set Sort Polymorphism.
 Set Printing Universes.
 
-Inductive sum@{sl sr s;ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) : Type@{s;max(ul,ur)} :=
-| inl : A -> sum A B
-| inr : B -> sum A B.
-
-Arguments inl {A B} _ , [A] B _.
-Arguments inr {A B} _ , A [B] _.
-
-(* Elimination constraint left explicitly empty. Definition fails because of missing constraint. *)
-Fail Definition sum_elim@{sl sr s0 s0';ul ur v|}
-  (A : Type@{sl;ul}) (B : Type@{sr;ur}) (P : sum@{sl sr s0;ul ur} A B -> Type@{s0';v})
-  (fl : forall a, P (inl a)) (fr : forall b, P (inr b)) (x : sum@{sl sr s0;ul ur} A B) :=
-  match x with
-  | inl a => fl a
-  | inr b => fr b
-  end.
-(* The command has indeed failed with message:
-Elimination constraints are not implied by the ones declared: s0->s0' *)
-
-(* Using + to elaborate missing constraints. Definition passes *)
-Definition sum_elim@{sl sr s0 s0';ul ur v|+}
-  (A : Type@{sl;ul}) (B : Type@{sr;ur}) (P : sum@{sl sr s0;ul ur} A B -> Type@{s0';v})
-  (fl : forall a, P (inl a)) (fr : forall b, P (inr b)) (x : sum@{sl sr s0;ul ur} A B) :=
-  match x with
-  | inl a => fl a
-  | inr b => fr b
-  end.
-(* sl sr s0 s0' ; ul ur v |= s0->s0' *)
-
-Definition sum_sind := sum_elim@{Type Type Type SProp;_ _ _}.
-Definition sum_rect := sum_elim@{Type Type Type Type;_ _ _}.
-Definition sum_ind := sum_elim@{Type Type Type Prop;_ _ _}.
-
-Definition or_ind := sum_elim@{Prop Prop Prop Prop;_ _ _}.
-Definition or_sind := sum_elim@{Prop Prop Prop SProp;_ _ _}.
-Fail Definition or_rect := sum_elim@{Prop Prop Prop Type;_ _ _}.
-(* The command has indeed failed with message:
-The quality constraints are inconsistent: cannot enforce Prop -> Type because it would identifyType and Prop which is inconsistent.
-This is introduced by the constraints Type -> Prop *)
-
-Definition sumor := sum@{Type Prop Type;_ _}.
-
-Definition sumor_sind := sum_elim@{Type Prop Type SProp;_ _ _}.
-Definition sumor_rect := sum_elim@{Type Prop Type Type;_ _ _}.
-Definition sumor_ind := sum_elim@{Type Prop Type Prop;_ _ _}.
-
-(* Implicit constraints are elaborated *)
-Definition idT@{sl sr s;ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
-  : sum@{sl sr Type;ul ur} A B :=
-  match x return sum@{sl sr Type;ul ur} A B with
-  | inl a => inl a
-  | inr b => inr b
-  end.
-(* sl sr s ; ul ur |= s->Type *)
-
-(* Implicit constraints are elaborated *)
-Definition idP@{sl sr s;ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
-  : sum@{sl sr Prop;ul ur} A B :=
-  match x return sum@{sl sr Prop;ul ur} A B with
-  | inl a => inl a
-  | inr b => inr b
-  end.
-(* sl sr s ; ul ur |= s->Prop *)
-
-(* Implicit constraints are elaborated *)
-Definition idS@{sl sr s;ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
-  : sum@{sl sr SProp;ul ur} A B :=
-  match x return sum@{sl sr SProp;ul ur} A B with
-  | inl a => inl a
-  | inr b => inr b
-  end.
-(* sl sr s ; ul ur |= s->SProp *)
-
-(* Implicit constraints are elaborated *)
-Definition idV@{sl sr s s';ul ur} (A : Type@{sl;ul}) (B : Type@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
-  : sum@{sl sr s';ul ur} A B :=
-  match x return sum@{sl sr s';ul ur} A B with
-  | inl a => inl a
-  | inr b => inr b
-  end.
-(* sl sr s s' ; ul ur |= s->s' *)
-
-Inductive List'@{s s';l} (A : Type@{s;l}) : Type@{s';l} :=
+Inductive List'@{s s';l} (A : 𝒰@{s;l}) : 𝒰@{s';l} :=
 | nil' : List' A
 | cons' : A -> List' A -> List' A.
 
@@ -91,30 +10,30 @@ Arguments nil' {A}.
 Arguments cons' {A} _ _.
 
 Definition list'_elim@{s s0 s';l l'}
-  (A : Type@{s;l}) (P : List'@{s s0;l} A -> Type@{s';l'})
+  (A : 𝒰@{s;l}) (P : List'@{s s0;l} A -> 𝒰@{s';l'})
   (fn : P nil') (fc : forall (x : A) (l : List' A), P l -> P (cons' x l)) :=
   fix F (l : List'@{s s0;l} A) : P l :=
     match l with
     | nil' => fn
     | cons' x l => fc x l (F l)
     end.
-(* s s0 s' ; l l' |= s0->s' *)
+(* s s0 s' ; l l' |= s0 -> s' *)
 
-Fixpoint list'_idT@{s s';l} {A : Type@{s;l}} (l : List'@{s s';l} A) : List'@{s Type;l} A :=
+Fixpoint list'_idT@{s s';l} {A : 𝒰@{s;l}} (l : List'@{s s';l} A) : List'@{s Type;l} A :=
   match l with
   | nil' => nil'
   | cons' x l => cons' x (list'_idT l)
   end.
 (* s s' ; l |= s'->Type *)
 
-Fixpoint list'_idP@{s s';l} {A : Type@{s;l}} (l : List'@{s s';l} A) : List'@{s Prop;l} A :=
+Fixpoint list'_idP@{s s';l} {A : 𝒰@{s;l}} (l : List'@{s s';l} A) : List'@{s Prop;l} A :=
   match l with
   | nil' => nil'
   | cons' x l => cons' x (list'_idP l)
   end.
 (* s s' ; l |= s'->Prop *)
 
-Fixpoint list'_idS@{s s';l} {A : Type@{s;l}} (l : List'@{s s';l} A) : List'@{s SProp;l} A :=
+Fixpoint list'_idS@{s s';l} {A : 𝒰@{s;l}} (l : List'@{s s';l} A) : List'@{s SProp;l} A :=
   match l with
   | nil' => nil'
   | cons' x l => cons' x (list'_idS l)
@@ -122,7 +41,7 @@ Fixpoint list'_idS@{s s';l} {A : Type@{s;l}} (l : List'@{s s';l} A) : List'@{s S
 (* s s' ; l |= s'->SProp *)
 
 (* Elimination constraint left explicitly empty. Definition fails because of missing constraint. *)
-Fail Fixpoint list'_idV@{s s0 s';l l'|l <= l'} {A : Type@{s;l}} (l : List'@{s s0;l} A) : List'@{s s';l'} A :=
+Fail Fixpoint list'_idV@{s s0 s';l l'|l <= l'} {A : 𝒰@{s;l}} (l : List'@{s s0;l} A) : List'@{s s';l'} A :=
   match l with
   | nil' => nil'
   | cons' x l => cons' x (list'_idV l)
@@ -131,19 +50,19 @@ Fail Fixpoint list'_idV@{s s0 s';l l'|l <= l'} {A : Type@{s;l}} (l : List'@{s s0
 Elimination constraints are not implied by the ones declared: s0->s' *)
 
 (* Using + to elaborate missing constraints. Definition passes *)
-Fixpoint list'_idV@{s s0 s';l l'|l <= l' + } {A : Type@{s;l}} (l : List'@{s s0;l} A) : List'@{s s';l'} A :=
+Fixpoint list'_idV@{s s0 s';l l'|l <= l' + } {A : 𝒰@{s;l}} (l : List'@{s s0;l} A) : List'@{s s';l'} A :=
   match l with
   | nil' => nil'
   | cons' x l => cons' x (list'_idV l)
   end.
 (* s s0 s' ; l l' |= s0->s', l <= l' *)
 
-Inductive False'@{s;u} : Type@{s;u} :=.
+Inductive False'@{s;u} : 𝒰@{s;u} :=.
 
 Definition False'_False@{s; +|+} (x : False'@{s;_}) : False := match x return False with end.
 (* s ; u |= s->Prop *)
 
-Inductive bool@{s;u} : Type@{s;u} := true | false.
+Inductive bool@{s;u} : 𝒰@{s;u} := true | false.
 
 Definition bool_to_Prop@{s;u} (b : bool@{s;u}) : Prop.
 Proof.
@@ -169,7 +88,18 @@ Next Obligation.
 Defined.
 (* s ; u |= s->Type *)
 
-Inductive unit@{s;u} : Type@{s;u} := tt.
+Inductive unit@{s;u} : 𝒰@{s;u} := tt.
+
+#[universes(polymorphic=no)]
+Sort Test.
+Fail Check (match true@{Test;Set} return ?[P] with true => tt | false => tt end).
+(* The command has indeed failed with message:
+Incorrect elimination of "true@{Test ; Set}" in the inductive type "bool@{Test ; Set}":
+the return type has sort "Type@{sort_poly_elab.291}"
+while it should be in a sort Test eliminates to.
+Elimination of a sort polymorphic inductive object instantiated to a variable sort quality
+is only allowed on itself or with an explicit elimination constraint to the target sort. *)
+
 
 Module Reduction.
 
@@ -206,9 +136,9 @@ Module Reduction.
     end.
   (* iter@{α | u |} : forall (A : Type@{α | u}) (_ : forall _ : A, A) (_ : nat) (_ : A), A *)
 
-  Definition iterType := Eval lazy in iter@{Type|_}.
+  Definition iterType := Eval lazy in iter@{Type;_}.
 
-  Definition iterSProp := Eval lazy in iter@{SProp|_}.
+  Definition iterSProp := Eval lazy in iter@{SProp;_}.
 
 End Reduction.
 
@@ -256,10 +186,10 @@ Module Conversion.
             (t2@{α α1 | u} A)) *)
 
   Definition t (A:SProp) := Eval lazy in t1 A.
-  (* t@{α | u |} : forall (A : SProp) (_ : A) (_ : A), Box@{SProp α | u} A *)
+  (* t@{α ; u |} : forall (A : SProp) (_ : A) (_ : A), Box@{SProp α ; u} A *)
 
   Axiom v : forall (A:𝒰), bool -> A.
-  Fail Check fun P (x:P (v@{Type|_} nat true)) => x : P (v nat false).
+  Fail Check fun P (x:P (v@{Type;_} nat true)) => x : P (v nat false).
   Check fun (A:SProp) P (x:P (v A true)) => x : P (v A false).
     (* : forall (A : SProp) (P : A -> Type@{sort_poly_elab.105}),
        P (v@{SProp | sort_poly_elab.104} A true) ->
@@ -279,27 +209,20 @@ Module Inference.
   (* zig@{α | u |} : Type@{α | _} -> Type@{α | _} *)
 
   (* different manually bound sort variables don't unify *)
-  Fail Definition zog'@{s s'| |} (A:𝒰@{s;Set}) := zog@{s';} A.
+  Fail Definition zog'@{s s'; |} (A:𝒰@{s;Set}) := zog@{s';} A.
 End Inference.
-
-#[universes(polymorphic=no)]
-Sort Test.
-Check (match true@{Test;Set} return ?[P] with true => tt | false => tt end).
 
 Module Inductives.
   Inductive foo1 : 𝒰 := .
-  (* foo1@{α | u |} : Type@{α | _} :=  . *)
-  Check foo1_poly.
+  (* foo1@{α | u |} : 𝒰@{α | _} :=  . *)
+
   Fail Check foo1_sind.
 
-  Definition foo1_rect@{u1 u2} := foo1_poly@{Type Type|u1 u2}.
-  Definition foo1_ind@{u1 u2} := foo1_poly@{Type Prop|u1 u2}.
-
   (* Fails if constraints cannot be extended *)
-  Fail Definition foo1_False@{s|+|} (x : foo1@{s|_}) : False := match x return False with end.
+  Fail Definition foo1_False@{s;+|} (x : foo1@{s;_}) : False := match x return False with end.
   (* Elimination constraints are not implied by the ones declared: s ~> Prop *)
 
-  Definition foo1_False@{s|+|+} (x : foo1@{s|_}) : False := match x return False with end.
+  Definition foo1_False@{s;+|+} (x : foo1@{s;_}) : False := match x return False with end.
   (* s | u |= s ~> Prop *)
 
   Definition foo1_False' (x : foo1) : False := match x return False with end.
@@ -308,11 +231,11 @@ Module Inductives.
 
   Inductive foo2 := Foo2 : 𝒰 -> foo2.
   (* foo2@{α | u |} : Type@{α | u+1} *)
-  Fail Check foo2_rect.
+  Check foo2_rect.
 
   Inductive foo3 (A : 𝒰) := Foo3 : A -> foo3 A.
-  (* foo3@{α α0 | u |} (A : Type@{α | u}) : Type@{α0 | u} *)
-  Fail Check foo3_rect.
+  (* foo3@{α α0 ; u |} (A : Type@{α | u}) : Type@{α0 | u} *)
+  Check foo3_rect.
 
   Inductive foo5 (A : 𝒰) : Prop := Foo5 (_ : A).
   (* foo5@{α | u |} (A : Type@{α | u}) : Prop := *)
@@ -484,7 +407,7 @@ Module Inductives.
   Check sexists_ind.
 
 
-  Definition π1 {A:𝒰} {P:A -> 𝒰} (p : sigma@{_ _ Type|_ _} A P) : A :=
+  Definition π1 {A:𝒰} {P:A -> 𝒰} (p : sigma@{_ _ Type;_ _ _} A P) : A :=
     match p return A with pair _ _ a _ => a end.
 
 End Inductives.
@@ -495,12 +418,86 @@ Set Universe Polymorphism.
 Inductive sigma (A:𝒰) (P:A -> 𝒰) : 𝒰
   :=  exist : forall x:A, P x -> sigma A P.
 
-Inductive sum@{sl sr s|ul ur|} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) : 𝒰@{s;max(ul,ur)} :=
+Inductive sum@{sl sr s;ul ur} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) : 𝒰@{s;max(ul,ur)} :=
 | inl : A -> sum A B
 | inr : B -> sum A B.
 
 Arguments inl {A B} _ , [A] B _.
 Arguments inr {A B} _ , A [B] _.
+
+(* Elimination constraint left explicitly empty. Definition fails because of missing constraint. *)
+Fail Definition sum_elim@{sl sr s0 s0';ul ur v|}
+  (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (P : sum@{sl sr s0;ul ur} A B -> 𝒰@{s0';v})
+  (fl : forall a, P (inl a)) (fr : forall b, P (inr b)) (x : sum@{sl sr s0;ul ur} A B) :=
+  match x with
+  | inl a => fl a
+  | inr b => fr b
+  end.
+(* The command has indeed failed with message:
+Elimination constraints are not implied by the ones declared: s0->s0' *)
+
+(* Using + to elaborate missing constraints. Definition passes *)
+Definition sum_elim@{sl sr s0 s0';ul ur v|+}
+  (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (P : sum@{sl sr s0;ul ur} A B -> 𝒰@{s0';v})
+  (fl : forall a, P (inl a)) (fr : forall b, P (inr b)) (x : sum@{sl sr s0;ul ur} A B) :=
+  match x with
+  | inl a => fl a
+  | inr b => fr b
+  end.
+(* sl sr s0 s0' ; ul ur v |= s0 -> s0' *)
+
+Definition sum_sind := sum_elim@{Type Type Type SProp;_ _ _}.
+Definition sum_rect := sum_elim@{Type Type Type Type;_ _ _}.
+Definition sum_ind := sum_elim@{Type Type Type Prop;_ _ _}.
+
+Definition or_ind := sum_elim@{Prop Prop Prop Prop;_ _ _}.
+Definition or_sind := sum_elim@{Prop Prop Prop SProp;_ _ _}.
+Fail Definition or_rect := sum_elim@{Prop Prop Prop Type;_ _ _}.
+(* The command has indeed failed with message:
+The quality constraints are inconsistent: cannot enforce Prop -> Type because it would identifyType and Prop which is inconsistent.
+This is introduced by the constraints Type -> Prop *)
+
+Definition sumor := sum@{Type Prop Type;_ _}.
+
+Definition sumor_sind := sum_elim@{Type Prop Type SProp;_ _ _}.
+Definition sumor_rect := sum_elim@{Type Prop Type Type;_ _ _}.
+Definition sumor_ind := sum_elim@{Type Prop Type Prop;_ _ _}.
+
+(* Implicit constraints are elaborated *)
+Definition idT@{sl sr s;ul ur} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
+  : sum@{sl sr Type;ul ur} A B :=
+  match x return sum@{sl sr Type;ul ur} A B with
+  | inl a => inl a
+  | inr b => inr b
+  end.
+(* sl sr s ; ul ur |= s -> Type *)
+
+(* Implicit constraints are elaborated *)
+Definition idP@{sl sr s;ul ur} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
+  : sum@{sl sr Prop;ul ur} A B :=
+  match x return sum@{sl sr Prop;ul ur} A B with
+  | inl a => inl a
+  | inr b => inr b
+  end.
+(* sl sr s ; ul ur |= s -> Prop *)
+
+(* Implicit constraints are elaborated *)
+Definition idS@{sl sr s;ul ur} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
+  : sum@{sl sr SProp;ul ur} A B :=
+  match x return sum@{sl sr SProp;ul ur} A B with
+  | inl a => inl a
+  | inr b => inr b
+  end.
+(* sl sr s ; ul ur |= s -> SProp *)
+
+(* Implicit constraints are elaborated *)
+Definition idV@{sl sr s s';ul ur} (A : 𝒰@{sl;ul}) (B : 𝒰@{sr;ur}) (x : sum@{sl sr s;ul ur} A B)
+  : sum@{sl sr s';ul ur} A B :=
+  match x return sum@{sl sr s';ul ur} A B with
+  | inl a => inl a
+  | inr b => inr b
+  end.
+(* sl sr s s' ; ul ur |= s -> s' *)
 
 Fail Definition idV@{sl sr s s'|ul ur| ul <= ur} {A : 𝒰@{sl;ul}} {B : 𝒰@{sr;ur}} (x : sum@{sl sr s;ul ur} A B)
   : sum@{sl sr s'|ul ur} A B :=
@@ -510,17 +507,11 @@ Fail Definition idV@{sl sr s s'|ul ur| ul <= ur} {A : 𝒰@{sl;ul}} {B : 𝒰@{s
   end.
 (* sl sr s ; ul ur |= s->Type *)
 
-Definition idV@{sl sr s s'|ul ur| ul <= ur +} {A : 𝒰@{sl;ul}} {B : 𝒰@{sr;ur}} (x : sum@{sl sr s|ul ur} A B)
-  : sum@{sl sr s'|ul ur} A B :=
-  match x return sum@{sl sr s'|ul ur} A B with
-  | inl a => inl a
-  | inr b => inr b
-  end.
 
-Fail Compute idV@{Prop Type Prop Type|Set Set} (inl I).
+Fail Compute idV@{Prop Type Prop Type;Set Set} (inl I).
 
 (* Interactive definition *)
-Inductive FooNat :=
+Inductive FooNat : 𝒰 :=
 | FO : FooNat
 | FS : FooNat -> FooNat.
 
@@ -530,5 +521,5 @@ Definition Foo (n : FooNat) : FooNat.
   - exact FO.
 Defined.
 
-Check Foo@{Type Prop|}.
-Fail Check Foo@{Prop Type|}.
+Check Foo@{Type Prop;}.
+Fail Check Foo@{Prop Type;}.
