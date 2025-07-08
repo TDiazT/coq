@@ -29,7 +29,6 @@ let constr_flags =
     expand_evars = true;
     program_mode = false;
     polymorphic = false;
-    sort_polymorphic = false;
     undeclared_evars_rr = false;
     unconstrained_sorts = false;
   }
@@ -44,7 +43,6 @@ let open_constr_no_classes_flags =
   expand_evars = false;
   program_mode = false;
   polymorphic = false;
-  sort_polymorphic = false;
   undeclared_evars_rr = false;
   unconstrained_sorts = false;
   }
@@ -59,7 +57,6 @@ let preterm_flags =
   expand_evars = false;
   program_mode = false;
   polymorphic = false;
-  sort_polymorphic = false;
   undeclared_evars_rr = false;
   unconstrained_sorts = false;
   }

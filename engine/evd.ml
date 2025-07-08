@@ -1103,7 +1103,7 @@ let univ_entry ~poly evd = UState.univ_entry ~poly evd.universes
 
 let check_sort_poly_decl ~poly evd decl = UState.check_sort_poly_decl ~poly evd.universes decl
 
-let check_sort_poly_decl_early ~poly ~sort_poly ~with_obls sigma udecl terms =
+let check_sort_poly_decl_early ~poly ~with_obls sigma udecl terms =
   let () =
     if with_obls && not poly &&
        (not udecl.UState.sort_poly_decl_extensible_instance
@@ -1115,7 +1115,7 @@ let check_sort_poly_decl_early ~poly ~sort_poly ~with_obls sigma udecl terms =
   in
   let vars = List.fold_left (fun acc b -> Univ.Level.Set.union acc (Vars.universes_of_constr b)) Univ.Level.Set.empty terms in
   let uctx = ustate sigma in
-  let uctx = UState.collapse_sort_variables ~to_type:(not sort_poly) uctx in
+  let uctx = UState.collapse_sort_variables ~to_type:(not poly) uctx in
   let uctx = UState.restrict uctx vars in
   ignore (UState.check_sort_poly_decl ~poly uctx udecl)
 

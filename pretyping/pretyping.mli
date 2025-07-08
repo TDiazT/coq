@@ -84,7 +84,6 @@ type inference_flags = {
   expand_evars : bool;
   program_mode : bool;
   polymorphic : bool;
-  sort_polymorphic : bool;
   undeclared_evars_rr : bool;
   unconstrained_sorts : bool;
 }
@@ -180,7 +179,6 @@ val ise_pretype_gen :
 
 type pretype_flags = {
   poly : bool;
-  sort_poly : bool;
   resolve_tc : bool;
   program_mode : bool;
   use_coercions : bool;
