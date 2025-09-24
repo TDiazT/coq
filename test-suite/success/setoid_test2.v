@@ -137,6 +137,7 @@ Axiom f : S1 -> nat -> S2.
 Add Morphism f with signature (eqS1 ==> eq ==> eqS2) as f_compat. Admitted.
 Add Morphism f with signature (eqS1 ==> eq ==> eqS2) as f_compat2. Admitted.
 
+Set Debug "backtrace".
 Theorem test1: forall x y, (eqS1 x y) -> (eqS2 (f x 0) (f y 0)).
  intros.
  rewrite H.

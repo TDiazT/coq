@@ -98,6 +98,7 @@ let optimize_non_type_induction_scheme kind dep sort env _handle ind =
        we optimise non-[Type] schemes *)
     let sigma, sort = Evd.fresh_sort_in_quality sigma sort in
     let sigma, t', c' = weaken_sort_scheme env sigma sort npars c t in
+    (* TODO: Default to Type or use sort poly flag? *)
     let sigma = Evd.minimize_universes sigma in
     (Evarutil.nf_evars_universes sigma c', Evd.ustate sigma)
   | None ->

@@ -103,8 +103,7 @@ Module Inductives.
   Inductive foo1@{s; |} : Type@{s;Set} := .
   Fail Check foo1_sind.
 
-  Fail Definition foo1_False@{s;+|+} (x:foo1@{s;}) : False := match x return False with end.
-  (* XXX error message is bad *)
+  Definition foo1_False@{s;+|+} (x:foo1@{s;}) : False := match x return False with end.
 
   Inductive foo2@{s; |} := Foo2 : Type@{s;Set} -> foo2.
   Check foo2_rect.
@@ -135,14 +134,7 @@ Module Inductives.
   Inductive foo6@{s; |} : Type@{s;Set} := Foo6.
   Fail Check foo6_sind.
 
-  Fail Definition foo6_rect@{s;+|+} (P:foo6@{s;} -> Type)
-    (H : P Foo6)
-    (f : foo6)
-    : P f
-    := match f with Foo6 => H end.
-
-  (* implicit quality is set to Type *)
-  Definition foo6_rect (P:foo6 -> Type)
+  Definition foo6_rect@{s;+|+} (P:foo6@{s|} -> Type)
     (H : P Foo6)
     (f : foo6)
     : P f
@@ -171,6 +163,9 @@ Module Inductives.
     (f : foo6@{s';})
     : P f
     := match f with Foo6 => H end.
+  (* The command has indeed failed with message:
+     Elimination constraints are not implied by the ones declared:
+     s' ~> s *)
 
   Inductive foo7@{s; |} : Type@{s;Set} := Foo7_1 | Foo7_2.
   Fail Check foo7_sind.
@@ -249,14 +244,13 @@ Module Inductives.
   Definition pr2@{s;+|} {A B} (s:sigma@{s;_ _} A B) : B (pr1 s)
     := match s with pair _ _ _ y => y end.
 
-  (* but we can't prove eta *)
   Inductive seq@{s;u|} (A:Type@{s;u}) (a:A) : A -> Prop := seq_refl : seq A a a.
   Arguments seq_refl {_ _}.
 
   Definition eta@{s;+|+} A B (s:sigma@{s;_ _} A B) : seq _ s (pair A B (pr1 s) (pr2 s)).
   Proof.
-    Fail destruct s.
-  Abort.
+    destruct s. simpl. reflexivity.
+  Qed.
 
   (* sigma as a primitive record works better *)
   Record Rsigma@{s;u v|} (A:Type@{s;u}) (B:A -> Type@{s;v}) : Type@{s;max(u,v)}

@@ -127,6 +127,7 @@ val declare_definition
   :  info:Info.t
   -> cinfo:EConstr.t option CInfo.t
   -> opaque:bool
+  -> sort_poly:bool
   -> body:EConstr.t
   -> ?using:Vernacexpr.section_subset_expr
   -> Evd.evar_map
@@ -436,6 +437,7 @@ type constant_entry =
 
 val prepare_parameter
   : poly:bool
+  -> sort_poly:bool
   -> udecl:UState.poly_decl
   -> types:EConstr.types
   -> Evd.evar_map
@@ -464,6 +466,7 @@ val declare_definition_full
   :  info:Info.t
   -> cinfo:EConstr.t option CInfo.t
   -> opaque:bool
+  -> sort_poly:bool
   -> body:EConstr.t
   -> ?using:Vernacexpr.section_subset_expr
   -> Evd.evar_map

@@ -351,7 +351,7 @@ let pr prv g =
   let dom = List.of_seq @@ Quality.Set.to_seq @@ domain g in
   let pairs = non_refl_pairs dom in
   let eliminable = List.filter (fun (q1, q2) -> eliminates_to g q1 q2) pairs in
-  let pp (q1, q2) = Quality.pr prv q1 ++ str " -> " ++ Quality.pr prv q2 in
+  let pp (q1, q2) = Quality.pr prv q1 ++ str " ~> " ++ Quality.pr prv q2 in
   prlist_with_sep (fun () -> str " , ") pp eliminable
 
 
