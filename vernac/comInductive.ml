@@ -29,6 +29,7 @@ module RelDecl = Context.Rel.Declaration
 
 type flags = {
   poly : bool;
+  sort_poly : bool;
   cumulative : bool;
   template : bool option;
   finite : Declarations.recursivity_kind;
@@ -145,8 +146,8 @@ let intern_ind_arity env sigma ind =
   let template_syntax = if pseudo_poly then SyntaxAllowsTemplatePoly else SyntaxNoTemplatePoly in
   (constr_loc ind.ind_arity, c, impls, template_syntax)
 
-let pretype_ind_arity ~unconstrained_sorts env sigma (loc, c, impls, template_syntax) =
-  let flags = { Pretyping.all_no_fail_flags with unconstrained_sorts } in
+let pretype_ind_arity ~unconstrained_sorts ~sort_poly env sigma (loc, c, impls, template_syntax) =
+  let flags = { Pretyping.all_no_fail_flags with unconstrained_sorts ; sort_polymorphic = sort_poly } in
   let sigma,t = understand_tcc ~flags env sigma ~expected_type:IsType c in
   match Reductionops.sort_of_arity env sigma t with
   | exception Reduction.NotArity ->
@@ -179,6 +180,7 @@ let interp_cstrs env (sigma, ind_rel) impls params ind arity =
                   use_typeclasses = UseTCForConv;
                   solve_unification_constraints = false }
     in
+    (* TODO: Do we need to pass on the sort poly elab flag or default it to false? *)
     let sigma, (ctyp, cimpl) = interp_type_evars_impls ~flags env sigma ~impls ctyp in
     let ctx, concl = Reductionops.whd_decompose_prod_decls env sigma ctyp in
     let concl_env = EConstr.push_rel_context ctx env in
@@ -292,7 +294,7 @@ let include_constructor_argument evd ~poly ~ctor_sort ~inductive_sort =
 
 type default_dep_elim = DeclareInd.default_dep_elim = DefaultElim | PropButDepElim
 
-let inductive_levels env evd ~poly ~indnames ~arities_explicit arities ctors =
+let inductive_levels env evd ~poly ~sort_poly ~indnames ~arities_explicit arities ctors =
   let inds = List.map2 (fun x ctors ->
       let ctx, s = Reductionops.dest_arity env evd x in
       x, (ctx, s), List.map (compute_constructor_levels env evd) ctors)
@@ -321,7 +323,8 @@ let inductive_levels env evd ~poly ~indnames ~arities_explicit arities ctors =
       inds
   in
 
-  let candidates = prop_lowering_candidates evd ~arities_explicit inds in
+  (* Or should inductive_levels be cut off earlier, e.g. at L646 ? *)
+  let candidates = if sort_poly then [] else prop_lowering_candidates evd ~arities_explicit inds in
   (* Do the lowering. We forget about the generated universe for the
      lowered inductive and rely on universe restriction to get rid of
      it.
@@ -514,8 +517,8 @@ type should_template =
   | MaybeTemplate of { force_template : bool; }
   | NotTemplate
 
-let nontemplate_univ_entry ~poly sigma udecl =
-  let sigma = Evd.collapse_sort_variables sigma in
+let nontemplate_univ_entry ~poly ~sort_poly sigma udecl =
+  let sigma = Evd.collapse_sort_variables ~to_type:(not sort_poly) sigma in
   let uentry, _ as ubinders = Evd.check_univ_decl ~poly sigma udecl in
   let uentry, global = match uentry with
     | UState.Polymorphic_entry uctx -> Polymorphic_ind_entry uctx, Univ.ContextSet.empty
@@ -563,9 +566,9 @@ match user_template, poly with
 | None, false ->
   MaybeTemplate { force_template = false; }
 
-let inductive_univs sigma ~user_template ~poly udecl ~indnames ~ctx_params ~arities ~constructors template_syntax =
+let inductive_univs sigma ~user_template ~poly ~sort_poly udecl ~indnames ~ctx_params ~arities ~constructors template_syntax =
   match should_template ~user_template ~poly with
-  | NotTemplate -> nontemplate_univ_entry ~poly sigma udecl
+  | NotTemplate -> nontemplate_univ_entry ~poly ~sort_poly sigma udecl
   | MaybeTemplate { force_template; } ->
     let info = match List.combine3 arities constructors template_syntax with
     | [arity, (_cnames, constructors), SyntaxAllowsTemplatePoly] ->
@@ -580,14 +583,14 @@ let inductive_univs sigma ~user_template ~poly udecl ~indnames ~ctx_params ~arit
     in
     match info, force_template with
     | Error _, false ->
-      nontemplate_univ_entry ~poly sigma udecl
+      nontemplate_univ_entry ~poly ~sort_poly sigma udecl
     | Error msg, true -> CErrors.user_err Pp.(str msg)
     | Ok (template_univs, pseudo_sort_poly), _ ->
       let has_template = not @@ Univ.Level.Set.is_empty template_univs in
       if force_template || should_auto_template (List.hd indnames) has_template then
         let () = if not has_template then warn_no_template_universe () in
         template_univ_entry sigma udecl ~template_univs pseudo_sort_poly
-      else nontemplate_univ_entry ~poly sigma udecl
+      else nontemplate_univ_entry ~poly ~sort_poly sigma udecl
 
 let check_param = function
 | CLocalDef (na, _, _, _) -> check_named na
@@ -627,6 +630,7 @@ let variance_of_entry ~cumulative ~variances uctx =
 let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~indnames ~arities_explicit ~arities ~template_syntax ~constructors ~env_ar ~private_ind =
   let {
     poly;
+    sort_poly;
     cumulative;
     template;
     finite;
@@ -640,7 +644,7 @@ let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~
         tys)
       constructors
   in
-  let sigma, (default_dep_elim, arities) = inductive_levels env_ar_params sigma ~poly ~indnames ~arities_explicit arities ctor_args in
+  let sigma, (default_dep_elim, arities) = inductive_levels env_ar_params sigma ~poly ~sort_poly ~indnames ~arities_explicit arities ctor_args in
   (* we must minimize before inferring template info.
      For instance before minimization "option" is "option : Type@{u} -> Type@{v}" with "u <= v".
      We want to produce "Type@{u} -> Type@{u}" with "u" template poly.
@@ -648,11 +652,11 @@ let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~
 
      We also need to restrict to avoid seeing spurious bounds from below
      (ie v <= template_u with v getting restricted away). *)
-  let sigma = Evd.minimize_universes ~collapse_sort_variables:false sigma in
+  let sigma = Evd.minimize_universes ~collapse_sort_variables:sort_poly ~to_type:(not sort_poly) sigma in
   let sigma = restrict_inductive_universes sigma ctx_params arities constructors in
 
   let sigma, univ_entry, ubinders, global_cstrs =
-    inductive_univs sigma ~user_template:template ~poly udecl
+    inductive_univs sigma ~user_template:template ~poly ~sort_poly udecl
       ~indnames ~ctx_params ~arities ~constructors template_syntax
   in
 
@@ -684,12 +688,12 @@ let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~
   in
   default_dep_elim, mind_entry, ubinders, global_cstrs
 
-let interp_params ~unconstrained_sorts env udecl uparamsl paramsl =
+let interp_params ~unconstrained_sorts ~sort_poly env udecl uparamsl paramsl =
   let sigma, udecl, variances = interp_cumul_univ_decl_opt env udecl in
   let sigma, (uimpls, ((env_uparams, ctx_uparams), useruimpls, _locs)) =
-    interp_context_evars ~program_mode:false ~unconstrained_sorts env sigma uparamsl in
+    interp_context_evars ~program_mode:false ~unconstrained_sorts ~sort_poly env sigma uparamsl in
   let sigma, (impls, ((env_params, ctx_params), userimpls, _locs)) =
-    interp_context_evars ~program_mode:false ~unconstrained_sorts ~impl_env:uimpls env_uparams sigma paramsl
+    interp_context_evars ~program_mode:false ~unconstrained_sorts ~sort_poly ~impl_env:uimpls env_uparams sigma paramsl
   in
   (* Names of parameters as arguments of the inductive type (defs removed) *)
   sigma, env_params, (ctx_params, env_uparams, ctx_uparams,
@@ -734,15 +738,16 @@ let interp_mutual_inductive_gen env0 ~flags udecl (uparamsl,paramsl,indl) notati
 
   (* In case of template polymorphism, we need to compute more constraints *)
   let unconstrained_sorts = not flags.poly in
+  let sort_poly = flags.sort_poly in
 
   let sigma, env_params, (ctx_params, env_uparams, ctx_uparams, userimpls, useruimpls, impls, udecl, variances) =
-    interp_params ~unconstrained_sorts env0 udecl uparamsl paramsl
+    interp_params ~unconstrained_sorts ~sort_poly env0 udecl uparamsl paramsl
   in
 
   (* Interpret the arities *)
   let arities = List.map (intern_ind_arity env_params sigma) indl in
 
-  let sigma, arities = List.fold_left_map (pretype_ind_arity ~unconstrained_sorts env_params) sigma arities in
+  let sigma, arities = List.fold_left_map (pretype_ind_arity ~unconstrained_sorts ~sort_poly env_params) sigma arities in
   let arities, relevances, template_syntax, indimpls = List.split4 arities in
 
   let lift_ctx n ctx =
