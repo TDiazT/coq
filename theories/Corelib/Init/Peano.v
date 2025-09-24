@@ -98,7 +98,7 @@ Hint Resolve f_equal2_nat: core.
 
 Lemma plus_n_O : forall n:nat, n = n + 0.
 Proof.
-  intro n; induction n; simpl; auto.
+intro n; induction n; simpl; auto. apply f_equal; auto.
 Qed.
 
 #[global]
@@ -113,7 +113,7 @@ Qed.
 
 Lemma plus_n_Sm : forall n m:nat, S (n + m) = n + S m.
 Proof.
-  intros n m; induction n; simpl; auto.
+  intros n m; induction n; simpl; auto. apply f_equal; eauto.
 Qed.
 #[global]
 Hint Resolve plus_n_Sm: core.
@@ -148,7 +148,9 @@ Lemma mult_n_Sm : forall n m:nat, n * m + n = n * S m.
 Proof.
   intros n m; induction n as [| p H]; simpl; auto.
   destruct H; rewrite <- plus_n_Sm; apply eq_S.
-  pattern m at 1 3; elim m; simpl; auto.
+  pattern m at 1 3; elim m; simpl.
+  - reflexivity.
+  - intros. apply f_equal; auto.
 Qed.
 #[global]
 Hint Resolve mult_n_Sm: core.
