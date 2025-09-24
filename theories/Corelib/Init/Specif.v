@@ -390,6 +390,7 @@ Section sigT.
     : u = v
     := eq_sigT u v p (P_hprop _ _ _).
 
+  Set Debug "backtrace".
   (** Equivalence of equality of [sigT] with a [sigT] of equality *)
   (** We could actually prove an isomorphism here, and not just [<->],
       but for simplicity, we don't. *)

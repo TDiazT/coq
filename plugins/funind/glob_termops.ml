@@ -585,6 +585,7 @@ let resolve_and_replace_implicits exptyp env sigma rt =
       program_mode = false;
       use_coercions = true;
       poly = false;
+      sort_poly = false;
       resolve_tc = true;
       undeclared_evars_rr = false;
       unconstrained_sorts = false;
@@ -595,6 +596,7 @@ let resolve_and_replace_implicits exptyp env sigma rt =
     let sigma', _ = eval_pretyper pretyper ~flags:pretype_flags (Some exptyp) genv sigma rt in
     solve_remaining_evars flags env ~initial:sigma sigma'
   in
+  (* TODO: Default to Type or use sort poly flag? *)
   let ctx = Evd.minimize_universes ctx in
   let f c =
     EConstr.of_constr
