@@ -172,6 +172,9 @@ Module Inductives.
     (f : foo6@{s';})
     : P f
     := match f with Foo6 => H end.
+  (* The command has indeed failed with message:
+     Elimination constraints are not implied by the ones declared:
+     s' -> s *)
 
   Inductive foo7@{s; |} : Type@{s;Set} := Foo7_1 | Foo7_2.
   Fail Check foo7_sind.
