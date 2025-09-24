@@ -299,6 +299,8 @@ let merge_constraints f m =
   { m with elims = f m.elims }
 
 let normalize_elim_constraints m cstrs =
+  (* Since local elimination constraints and the elimination graph are currenlty kept in separate
+     structures, we normalize the local ones and the graph handles its own constraints *)
   let subst q = match q with
     | QConstant _ -> q
     | QVar qv -> repr qv m
@@ -1394,7 +1396,7 @@ let subst_univs_context_with_def def usubst (uctx, (elim_csts, univ_csts)) =
   (Level.Set.diff uctx def, PolyConstraints.make elim_csts @@
                               UnivSubst.subst_univs_constraints usubst univ_csts)
 
-let normalize_univ_variables uctx =
+let normalize_lvl_variables uctx =
   let normalized_variables, def, subst =
     UnivFlex.normalize_univ_variables uctx.univ_variables
   in
@@ -1411,7 +1413,7 @@ let normalize_quality_variables uctx =
   { uctx with local = (lvls, (elim_cstrs, lvl_cstrs)) }
 
 let normalize_variables uctx =
-  let uctx = normalize_univ_variables uctx in
+  let uctx = normalize_lvl_variables uctx in
   normalize_quality_variables uctx
 
 let fix_undefined_variables uctx =

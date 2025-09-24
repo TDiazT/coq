@@ -66,6 +66,9 @@ val update_dominance_if_valid : t -> Quality.ElimConstraint.t -> t option
 val check_constraint : t -> Quality.ElimConstraint.t -> bool
 val check_constraints : Quality.ElimConstraints.t -> t -> bool
 
+val check_declared_qualities : t -> Quality.Set.t -> (unit, Quality.Set.t) result
+(** Check that the qualities are declared. *)
+
 val enforce_eliminates_to : constraint_source -> Quality.t -> Quality.t -> t -> t
 (** Set the first quality to eliminate to the second one in the graph.
 
