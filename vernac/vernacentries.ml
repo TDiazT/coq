@@ -167,8 +167,9 @@ let show_top_evars ~proof =
   pr_evars_int sigma ~shelf ~given_up 1 (Evd.undefined_map sigma)
 
 let show_universes ~proof =
-  let Proof.{goals;sigma} = Proof.data proof in
-  let ctx = Evd.universe_context_set (Evd.minimize_universes sigma) in
+  let Proof.{goals; sigma; poly} = Proof.data proof in
+  let to_type = PolyFlags.collapse_sort_variables poly in
+  let ctx = Evd.universe_context_set (Evd.minimize_universes ~to_type sigma) in
   UState.pr (Evd.ustate sigma) ++ fnl () ++
   v 1 (str "Normalized constraints:" ++ cut() ++
        PConstraints.ContextSet.pr (Termops.pr_evd_qvar sigma) (Termops.pr_evd_level sigma) ctx)
@@ -2698,8 +2699,8 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
 
   | VernacAddRewRule (id, c) ->
     vtdefault (fun () ->
-        unsupported_attributes atts;
-        ComRewriteRule.do_rules id.v c)
+        let sort_poly = Attributes.(parse collapse_sort_variables) atts in
+        ComRewriteRule.do_rules ~sort_poly id.v c)
 
   (* Gallina extensions *)
 
