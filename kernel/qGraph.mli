@@ -32,7 +32,7 @@ type quality_inconsistency =
   ((Quality.QVar.t -> Pp.t) option) * (Quality.ElimConstraint.kind * Quality.t * Quality.t * explanation option)
 
 type elimination_error =
-  | IllegalConstraint
+  | IllegalConstraint of Quality.t * Quality.t
   | CreatesForbiddenPath of Quality.t * Quality.t
   | MultipleDominance of Quality.t * Quality.t * Quality.t
   | QualityInconsistency of quality_inconsistency
@@ -105,3 +105,11 @@ val is_empty : t -> bool
 val explain_quality_inconsistency : (Quality.QVar.t -> Pp.t) -> quality_inconsistency -> Pp.t
 
 val explain_elimination_error : (Quality.QVar.t -> Pp.t) -> elimination_error -> Pp.t
+
+val pr : (Quality.QVar.t -> Pp.t) -> t -> Pp.t
+
+module Internal : sig
+  val add_template_qvars : Quality.QVar.Set.t -> t -> t
+  (** Set all the qvars in the set to eliminate to Prop.
+      Do not use outside kernel inductive typechecking. *)
+end

@@ -102,7 +102,7 @@ type constraint_source =
   | Static
 
 type elimination_error =
-  | IllegalConstraint
+  | IllegalConstraint of Quality.t * Quality.t
   | CreatesForbiddenPath of Quality.t * Quality.t
   | MultipleDominance of Quality.t * Quality.t * Quality.t
   | QualityInconsistency of quality_inconsistency
@@ -204,7 +204,7 @@ let enforce_constraint src (q1, k, q2) g =
        | Rigid ->
           if (Quality.is_qconst q1 && Quality.is_qconst q2) ||
                (Quality.is_qsprop q1 && not (Quality.is_qsprop q2))
-          then raise (EliminationError IllegalConstraint)
+          then raise (EliminationError (IllegalConstraint (q1, q2)))
           else { g with graph; rigid_paths = RigidPaths.add (q1, q2) @@ add_transitive_rigid_paths q1 q2 g.rigid_paths }
        | Internal ->
           match get_new_rigid_path g.graph g.rigid_paths g.ground_and_global_sorts with
@@ -330,7 +330,9 @@ let explain_quality_inconsistency defprv (prv, (k, q1, q2, r)) =
 let explain_elimination_error defprv err =
   let open Pp in
   match err with
-  | IllegalConstraint -> str "A constraint involving two constants or SProp ~> s is illegal."
+  | IllegalConstraint (q1, q2) -> str "This expression would enforce an elimination constraint between" ++
+       spc() ++ Quality.pr defprv q1 ++ spc() ++ str"and" ++ spc() ++ Quality.pr defprv q2 ++
+    str " that is not allowed."
   | CreatesForbiddenPath (q1,q2) ->
      str "This expression would enforce a non-declared elimination constraint between" ++
        spc() ++ Quality.pr defprv q1 ++ spc() ++ str"and" ++ spc() ++ Quality.pr defprv q2
@@ -341,3 +343,18 @@ let explain_elimination_error defprv err =
   | QualityInconsistency incon ->
      str"the quality constraints are inconsistent: " ++
        explain_quality_inconsistency defprv incon
+
+let pr prv g =
+  let open Pp in
+  let dom = List.of_seq @@ Quality.Set.to_seq @@ domain g in
+  let pairs = non_refl_pairs dom in
+  let eliminable = List.filter (fun (q1, q2) -> eliminates_to g q1 q2) pairs in
+  let pp (q1, q2) = Quality.pr prv q1 ++ str " -> " ++ Quality.pr prv q2 in
+  prlist_with_sep (fun () -> str " , ") pp eliminable
+
+
+module Internal = struct
+  let add_template_qvars qvs =
+    let set_elim_to_prop v = enforce_eliminates_to Internal (Quality.QVar v) Quality.qprop in
+    Quality.QVar.Set.fold set_elim_to_prop qvs
+end

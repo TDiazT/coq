@@ -281,6 +281,7 @@ let pperelevance r = pprelevance (EConstr.Unsafe.to_relevance r)
 let prlev l = UnivNames.pr_level_with_global_universes l
 let prqvar q = UnivNames.pr_quality_with_global_universes q
 let ppqvarset l = pp (hov 1 (str "{" ++ prlist_with_sep spc prqvar (Quality.QVar.Set.elements l) ++ str "}"))
+let ppqset qs = pp (hov 1 (str "{" ++ prlist_with_sep spc (Quality.pr prqvar) (Quality.Set.elements qs) ++ str "}"))
 let ppuniverse_set l = pp (Level.Set.pr prlev l)
 let ppuniverse_instance l = pp (Instance.pr prqvar prlev l)
 let ppuniverse_context l = pp (UVars.UContext.pr prqvar prlev l)
@@ -297,6 +298,9 @@ let ppuniverse_context_future c =
   let ctx = Future.force c in
     ppuniverse_context ctx
 let ppuniverses u = pp (UGraph.pr_universes Level.raw_pr (UGraph.repr u))
+let ppqgraph q = pp (QGraph.pr Quality.QVar.raw_pr q)
+let ppelim_constraints cstrs = pp (Quality.ElimConstraints.pr Quality.QVar.raw_pr cstrs)
+
 let ppnamedcontextval e =
   let env = Global.env () in
   let sigma = Evd.from_env env in
