@@ -152,10 +152,10 @@ let cook_inductive info mib =
     | NotRecord -> NotRecord
     | FakeRecord -> FakeRecord
     | PrimRecord data ->
-      let data = Array.map (fun (id,projs,relevances,tys) ->
+      let data = Array.map (fun (id,projs,relevances,tys, reta) ->
           let tys = Array.map (cook_projection cache ~params:mib.mind_params_ctxt) tys in
           let relevances = Array.map (lift_relevance info) relevances in
-          (id,projs,relevances,tys))
+          (id,projs,relevances,tys, reta))
           data
       in
       PrimRecord data
