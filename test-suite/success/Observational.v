@@ -14,7 +14,7 @@ Set Universe Polymorphism.
 
 Reserved Notation "x ~ y" (at level 70, no associativity).
 
-Inductive obseq@{α;u} (A:Type@{α;u}) (x:A) : A -> SProp :=
+Inductive obseq@{α;u} (A:𝒰@{α;u}) (x:A) : A -> SProp :=
     obseq_refl : x ~ x
 
 where "x ~ y" := (@obseq _ x y) : type_scope.
@@ -40,7 +40,7 @@ Instance obseq_Has_Leibniz_r_elim_SProp@{α;l +} : Has_Leibniz_r@{α SProp SProp
 
 Hint Resolve obseq_Has_Leibniz_r_elim_SProp : rewrite_instances.
 
-Parameter cast@{α;u u' | u<u'} : forall (A B : Type@{α;u}), obseq@{Type;u'} A B -> A -> B.
+Parameter cast@{α;u u' | u<u'} : forall (A B : 𝒰@{α;u}), obseq@{Type;u'} A B -> A -> B.
 
 Notation "e # a" := (cast _ _ e a) (at level 55, only parsing).
 
@@ -55,7 +55,7 @@ Instance obseq_Has_Leibniz_r_elim@{α β;l l' +} : Has_Leibniz_r@{α SProp β;l 
 Hint Resolve obseq_Has_Leibniz_r_elim : rewrite_instances.
 
 Definition obseq_apd@{sa sb; la lb lb' +}
-    {A : Type@{sa;la}} {a} (P : forall b : A, a ~ b -> Type@{sb ; lb})
+    {A : 𝒰@{sa;la}} {a} (P : forall b : A, a ~ b -> 𝒰@{sb ; lb})
     (b : A) (e : a ~ b) : @obseq _ (P a (refl A a)) (P b e) :=
     J_eliminator _ a (fun b e => @obseq _ (P a (refl _ _)) (P b e)) (refl _ _) b e.
 
