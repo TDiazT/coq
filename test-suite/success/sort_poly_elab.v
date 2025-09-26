@@ -147,7 +147,7 @@ Module Inductives.
   Definition foo5_ind' : forall (A : Type) (P : Prop), (A -> P) -> foo5 A -> P
     := foo5_ind.
 
-  Fail Definition foo5_Prop_rect (A:Prop) (P:foo5 A -> Type)
+  Definition foo5_Prop_rect (A:Prop) (P:foo5 A -> Type)
     (H : forall a, P (Foo5 A a))
     (f : foo5 A)
     : P f
@@ -194,9 +194,11 @@ Module Inductives.
     : P f
     := match f with Foo7_1 => H | Foo7_2 => H' end.
 
-  Fail Definition foo7_prop_rect (P:foo7 -> Type)
+  Definition foo7_prop_rect (P:foo7 -> Type)
     (H : P Foo7_1) (H' : P Foo7_2)
     (f : foo7@{Prop|})
+
+
     : P f
     := match f with Foo7_1 => H | Foo7_2 => H' end.
 
@@ -206,11 +208,26 @@ Module Inductives.
   (* the SProp instantiation may not be primitive so the whole thing must be nonprimitive *)
   Fail Record R1 : Type := {}.
 
-  (* the Type instantiation may not be primitive *)
+  (* R2@{Type|} may not be primitive  *)
   Record R2 (A:SProp) : Type := { R2f1 : A }.
+
+  Goal forall (A:SProp) (r2 : R2@{Type;Set} A), r2 = {| R2f1 := r2.(R2f1 A) |}.
+  Proof. intros A r2. Fail reflexivity. Abort.
+
+  Goal forall (A:SProp) (r2 : R2@{SProp;Set} A), r2 = {| R2f1 := r2.(R2f1 A) |}.
+  Proof. intros A r2. reflexivity. Abort.
 
   (* R3@{SProp Type|} may not be primitive  *)
   Record R3 (A:Type) : Type := { R3f1 : A }.
+
+  Example R3_same_sort@{s;u} (A :Type@{s;u}) : forall (r3 : R3@{s s;u} A), r3 = {| R3f1 := r3.(R3f1 A) |}.
+  Proof. intros r3. reflexivity. Qed.
+
+  Goal forall (A:SProp) (r3 : R3@{_ Type;Set} A), r3 = {| R3f1 := r3.(R3f1 A) |}.
+  Proof. intros A r3. Fail reflexivity. Abort.
+
+  Goal forall (A:SProp) (r3 : R3@{_ SProp;Set} A), r3 = {| R3f1 := r3.(R3f1 A) |}.
+  Proof. intros A r3. reflexivity. Abort.
 
   Record R4@{s| |} (A:Type@{s|Set}) : Type@{s|Set} := { R4f1 : A}.
 
