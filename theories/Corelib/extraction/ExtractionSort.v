@@ -1,6 +1,7 @@
 Sort Extr.
 
 Constraint Extr ~> SProp.
+Constraint Extr ~> Prop.
 Constraint Type ~> Extr.
 
 Set Universe Polymorphism.

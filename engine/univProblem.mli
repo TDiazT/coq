@@ -23,6 +23,7 @@ open UVars
 type t =
   | QEq of Quality.t * Quality.t
   | QLeq of Quality.t * Quality.t
+  | QElimTo of Quality.t * Quality.t
   | ULe of Sorts.t * Sorts.t
   | UEq of Sorts.t * Sorts.t
   | ULub of Level.t * Level.t

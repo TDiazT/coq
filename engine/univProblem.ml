@@ -13,6 +13,7 @@ open Univ
 type t =
   | QEq of Quality.t * Quality.t
   | QLeq of Quality.t * Quality.t
+  | QElimTo of Quality.t * Quality.t
   | ULe of Sorts.t * Sorts.t
   | UEq of Sorts.t * Sorts.t
   | ULub of Level.t * Level.t
@@ -20,12 +21,13 @@ type t =
 
 let is_trivial = function
   | QLeq (a,b) -> Inductive.raw_eliminates_to a b
+  | QElimTo (a,b) -> Inductive.raw_eliminates_to a b
   | QEq (a, b) -> Quality.equal a b
   | ULe (u, v) | UEq (u, v) -> Sorts.equal u v
   | ULub (u, v) | UWeak (u, v) -> Level.equal u v
 
 let force = function
-  | QEq _ | QLeq _ | ULe _ | UEq _ | UWeak _ as cst -> cst
+  | QEq _ | QElimTo _ | QLeq _ | ULe _ | UEq _ | UWeak _ as cst -> cst
   | ULub (u,v) -> UEq (Sorts.sort_of_univ @@ Universe.make u, Sorts.sort_of_univ @@ Universe.make v)
 
 let check_eq_level g u v = UGraph.check_eq_level g u v
@@ -37,8 +39,8 @@ module Set = struct
 
     let compare x y =
       match x, y with
-      | (QEq (a, b) | QLeq (a, b)),
-        (QEq (a', b') | QLeq (a', b')) ->
+      | (QEq (a, b) | QLeq (a, b) | QElimTo (a, b)),
+        (QEq (a', b') | QLeq (a', b') | QElimTo (a', b')) ->
         let i = Quality.compare a a' in
         if i <> 0 then i
         else Quality.compare b b'
@@ -60,6 +62,8 @@ module Set = struct
       | _, QEq _ -> 1
       | QLeq _, _ -> -1
       | _, QLeq _ -> 1
+      | QElimTo _, _ -> -1
+      | _, QElimTo _ -> 1
       | ULe _, _ -> -1
       | _, ULe _ -> 1
       | UEq _, _ -> -1
@@ -77,6 +81,7 @@ module Set = struct
   let pr_one = let open Pp in function
     | QEq (a, b) -> Quality.raw_pr a ++ str " = " ++ Quality.raw_pr b
     | QLeq (a, b) -> Quality.raw_pr a ++ str " <= " ++ Quality.raw_pr b
+    | QElimTo (a, b) -> Quality.raw_pr a ++ str " ~> " ++ Quality.raw_pr b
     | ULe (u, v) -> Sorts.debug_print u ++ str " <= " ++ Sorts.debug_print v
     | UEq (u, v) -> Sorts.debug_print u ++ str " = " ++ Sorts.debug_print v
     | ULub (u, v) -> Level.raw_pr u ++ str " /\\ " ++ Level.raw_pr v
