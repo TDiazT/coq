@@ -256,7 +256,7 @@ type pretype_flags = {
 
 let glob_opt_qvar ?loc ~flags sigma = function
   | None ->
-    if flags.unconstrained_sorts || (not @@ PolyFlags.collapse_sort_variables flags.poly) then
+    if flags.unconstrained_sorts then
       let sigma, q = new_quality_variable ?loc sigma in
       sigma, Some q
     else sigma, None
