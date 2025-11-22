@@ -112,9 +112,3 @@ val explain_quality_inconsistency : (QVar.t -> Pp.t) -> explanation option -> Pp
 val explain_elimination_error : (QVar.t -> Pp.t) -> elimination_error -> Pp.t
 
 val pr : (QVar.t -> Pp.t) -> t -> Pp.t
-
-module Internal : sig
-  val add_template_qvars : Sorts.QVar.Set.t -> t -> t
-  (** Set all the qvars in the set to eliminate to Prop.
-      Do not use outside kernel inductive typechecking. *)
-end

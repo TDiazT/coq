@@ -384,10 +384,3 @@ let pr prv g =
   let eliminable = List.filter (fun (q1, q2) -> eliminates_to g q1 q2) pairs in
   let pp (q1, q2) = Quality.pr prv q1 ++ str " -> " ++ Quality.pr prv q2 in
   prlist_with_sep (fun () -> str " , ") pp eliminable
-
-
-module Internal = struct
-  let add_template_qvars qvs =
-    let set_elim_to_prop v = enforce_eliminates_to Internal (Quality.QVar v) Quality.qprop in
-    QVar.Set.fold set_elim_to_prop qvs
-end

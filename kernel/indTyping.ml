@@ -129,15 +129,11 @@ let compute_elim_squash ?(is_real_arg=false) env sort info =
       | QSort (_, indu), QSort (cq, uu) ->
          check_univ_consistency_squash (QVar cq) indu uu
       | QSort (q, indu), Set ->
-        (* Morally, this checks if q is "above Prop" (Template poly),
-           and if so, squashing info remains the same *)
          if Environ.Internal.is_above_prop env q then info
          else check_univ_consistency_squash qtype indu Universe.type0
       | (SProp | Prop), QSort (q, _) ->
          add_squash (QVar q) info
       | QSort (q, _), (SProp | Prop) ->
-        (* Morally, this checks if q is "above Prop" (Template poly),
-           and if so, squashing info remains the same *)
          if Environ.Internal.is_above_prop env q then info
          else add_squash (Sorts.quality sort) info
       | _, _ -> { info with ind_squashed = Some AlwaysSquashed }
