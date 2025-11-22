@@ -208,10 +208,10 @@ let dominance_check g (q1,_,q2 as cstr) =
   | None -> raise (EliminationError (MultipleDominance (dom_q2() , q2, dom_q1())))
   | Some g -> g
 
-let enforce_constraint src (q1,k,q2) g =
+let enforce_constraint src (q1, k, q2) g =
   match enforce_func k q1 q2 g.graph with
   | None ->
-     let e = lazy (G.get_explanation (q1,to_graph_cstr k,q2) g.graph) in
+     let e = lazy (G.get_explanation (q1, to_graph_cstr k, q2) g.graph) in
      raise @@ EliminationError (QualityInconsistency (None, (k, q1, q2, Some (Path e))))
   | Some graph ->
      let g = match src with
@@ -224,7 +224,7 @@ let enforce_constraint src (q1,k,q2) g =
        | Internal ->
           match get_new_rigid_paths g.graph g.rigid_paths g.ground_and_global_sorts with
           | None -> { g with graph }
-          | Some (q1,q2) -> raise (EliminationError (CreatesForbiddenPath (q1, q2))) in
+          | Some (q1, q2) -> raise (EliminationError (CreatesForbiddenPath (q1, q2))) in
      dominance_check g (q1,k,q2)
 
 let merge_constraints src csts g = ElimConstraints.fold (enforce_constraint src) csts g
