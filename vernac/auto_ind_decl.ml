@@ -304,6 +304,16 @@ let build_beq_scheme_deps env kn =
   let inds = get_inductive_deps ~noprop:true env kn in
   List.map (fun ind -> Ind_tables.SchemeMutualDep (ind, !beq_scheme_kind_aux ())) inds
 
+let check_valid_elimination_to_type env mib i =
+  let kelim = Inductiveops.elim_sort (mib, mib.mind_packets.(i)) in
+  let graph = Environ.qualities env in
+  (* In case it is sort poly, we add the quality to the elimination constraint graph *)
+  let graph = try QGraph.add_quality kelim graph with QGraph.AlreadyDeclared -> graph in
+  if not (Inductive.eliminates_to graph kelim Sorts.Quality.qtype) then
+    raise (QGraph.EliminationError (CreatesForbiddenPath (kelim, Sorts.Quality.qtype)))
+  else
+    ()
+
 let build_beq_scheme env handle kn =
   check_bool_is_defined ();
   (* predef coq's boolean type *)
@@ -840,9 +850,7 @@ let build_beq_scheme env handle kn =
       | Finite when truly_recursive || nb_ind > 1 (* Hum... *) ->
          let cores = Array.init nb_ind make_one_eq in
          Array.init nb_ind (fun i ->
-            let kelim = Inductiveops.elim_sort (mib,mib.mind_packets.(i)) in
-            if not (Inductive.eliminates_to (Environ.qualities env) kelim Sorts.Quality.qtype) then
-              raise (NonSingletonProp (kn,i));
+            check_valid_elimination_to_type env mib i;
             let decrArg = Context.Rel.length nonrecparams_ctx_with_eqs in
             let fix = mkFix (((Array.make nb_ind decrArg),i),(names,types,cores)) in
             Term.it_mkLambda_or_LetIn fix recparams_ctx_with_eqs)
@@ -850,9 +858,7 @@ let build_beq_scheme env handle kn =
          assert (Int.equal nb_ind 1);
          (* If the inductive type is not recursive, the fixpoint is
              not used, so let's replace it with garbage *)
-         let kelim = Inductiveops.elim_sort (mib,mib.mind_packets.(0)) in
-         if not (Inductive.eliminates_to (Environ.qualities env) kelim Sorts.Quality.qtype)
-         then raise (NonSingletonProp (kn,0));
+         check_valid_elimination_to_type env mib 0;
          [|Term.it_mkLambda_or_LetIn (make_one_eq 0) recparams_ctx_with_eqs|]
   in
 
