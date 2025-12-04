@@ -82,11 +82,11 @@ let protect_pattern_in_binder bl c ctypopt =
   else
     (bl, c, ctypopt, fun f env evd c -> f env evd c)
 
-let interp_definition ~program_mode ~sort_poly env evd impl_env bl red_option c ctypopt =
-  let flags = Pretyping.{ all_no_fail_flags with program_mode; sort_polymorphic = sort_poly } in
+let interp_definition ~program_mode env evd impl_env bl red_option c ctypopt =
+  let flags = Pretyping.{ all_no_fail_flags with program_mode } in
   let (bl, c, ctypopt, apply_under_binders) = protect_pattern_in_binder bl c ctypopt in
   (* Build the parameters *)
-  let evd, (impls, ((env_bl, ctx), imps1, _locs)) = interp_context_evars ~program_mode ~sort_poly ~impl_env env evd bl in
+  let evd, (impls, ((env_bl, ctx), imps1, _locs)) = interp_context_evars ~program_mode ~impl_env env evd bl in
   (* Build the type *)
   let evd, tyopt = Option.fold_left_map
       (interp_type_evars_impls ~flags ~impls env_bl)
@@ -96,10 +96,10 @@ let interp_definition ~program_mode ~sort_poly env evd impl_env bl red_option c 
   let evd, c, imps, tyopt =
     match tyopt with
     | None ->
-      let evd, (c, impsbody) = interp_constr_evars_impls ~program_mode ~sort_poly ~impls env_bl evd c in
+      let evd, (c, impsbody) = interp_constr_evars_impls ~program_mode ~impls env_bl evd c in
       evd, c, imps1@impsbody, None
     | Some (ty, impsty) ->
-      let evd, (c, impsbody) = interp_casted_constr_evars_impls ~program_mode ~sort_poly ~impls env_bl evd c ty in
+      let evd, (c, impsbody) = interp_casted_constr_evars_impls ~program_mode ~impls env_bl evd c ty in
       check_imps ~impsty ~impsbody;
       evd, c, imps1@impsty, Some ty
   in
@@ -112,7 +112,7 @@ let interp_definition ~program_mode ~sort_poly env evd impl_env bl red_option c 
   evd, (c, tyopt), imps
 
 let interp_statement ~program_mode env evd ~flags ~scope name bl typ  =
-  let evd, (impls, ((env, ctx), imps, _locs)) = Constrintern.interp_context_evars ~sort_poly:(Pretyping.(flags.sort_polymorphic)) ~program_mode env evd bl in
+  let evd, (impls, ((env, ctx), imps, _locs)) = Constrintern.interp_context_evars ~program_mode env evd bl in
   let evd, (t', imps') = Constrintern.interp_type_evars_impls ~flags ~impls env evd typ in
   let ids = List.map Context.Rel.Declaration.get_name ctx in
   evd, ids, EConstr.it_mkProd_or_LetIn t' ctx, imps @ imps'
@@ -124,7 +124,7 @@ let do_definition ?loc ?hook ~name ?scope ?clearbody ~poly ~sort_poly ?typing_fl
   (* Explicitly bound universes and constraints *)
   let evd, udecl = interp_univ_decl_opt env udecl in
   let evd, (body, types), impargs =
-    interp_definition ~program_mode ~sort_poly env evd empty_internalization_env bl red_option c ctypopt
+    interp_definition ~program_mode env evd empty_internalization_env bl red_option c ctypopt
   in
   let kind = Decls.IsDefinition kind in
   let cinfo = Declare.CInfo.make ?loc ~name ~impargs ~typ:types () in
@@ -139,7 +139,7 @@ let do_definition_program ?loc ?hook ~pm ~name ~scope ?clearbody ~poly ~sort_pol
   (* Explicitly bound universes and constraints *)
   let evd, udecl = interp_univ_decl_opt env udecl in
   let evd, (body, types), impargs =
-    interp_definition ~program_mode:true ~sort_poly env evd empty_internalization_env bl red_option c ctypopt
+    interp_definition ~program_mode:true env evd empty_internalization_env bl red_option c ctypopt
   in
   let body, typ, uctx, _, obls = Declare.Obls.prepare_obligations ~name ~body ?types env evd in
   let () = Evd.check_univ_decl_early ~poly ~sort_poly ~with_obls:true evd udecl [body; typ] in
@@ -172,7 +172,7 @@ let do_definition_refine ?loc ?hook ~name ~scope ?clearbody ~poly ~sort_poly ~ty
   (* Explicitly bound universes and constraints *)
   let evd, udecl = interp_univ_decl_opt env udecl in
   let evd, (body, typ), impargs =
-    interp_definition ~program_mode:false ~sort_poly env evd empty_internalization_env bl None c ctypopt
+    interp_definition ~program_mode:false env evd empty_internalization_env bl None c ctypopt
   in
   let typ = match typ with Some typ -> typ | None -> Retyping.get_type_of env evd body in
 

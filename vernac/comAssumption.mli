@@ -89,7 +89,6 @@ val do_context
 (** Interpret a declaration of the form [binders |- typ] as a type *)
 val interp_assumption
   :  program_mode:bool
-  -> sort_poly:bool
   -> Environ.env
   -> Evd.evar_map
   -> Constrintern.internalization_env

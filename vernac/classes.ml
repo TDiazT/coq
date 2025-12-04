@@ -296,7 +296,6 @@ let type_ctx_instance ~program_mode env sigma ctx inst subst =
     | LocalAssum (_,t) :: ctx, c :: l ->
       let t' = substl subst t in
       let (sigma, c') =
-        (* TODO: Double check missing sort poly flag *)
         interp_casted_constr_evars ~program_mode env sigma c t'
       in
       aux (sigma, c' :: subst) l ctx
@@ -541,10 +540,10 @@ let typeclass_univ_instance env (cl, u) =
     clu_projs = cl.cl_projs;
   }
 
-let interp_instance_context ~program_mode ~sort_poly env ctx pl tclass =
+let interp_instance_context ~program_mode env ctx pl tclass =
   let sigma, decl = interp_univ_decl_opt env pl in
-  let sigma, (impls, ((env', ctx), imps, _locs)) = interp_context_evars ~program_mode ~sort_poly env sigma ctx in
-  let flags = Pretyping.{ all_no_fail_flags with program_mode ; sort_polymorphic = sort_poly } in
+  let sigma, (impls, ((env', ctx), imps, _locs)) = interp_context_evars ~program_mode env sigma ctx in
+  let flags = Pretyping.{ all_no_fail_flags with program_mode } in
   let sigma, (c', imps') = interp_type_evars_impls ~flags ~impls env' sigma tclass in
   let imps = imps @ imps' in
   let ctx', c = decompose_prod_decls sigma c' in
@@ -572,10 +571,10 @@ let id_of_class env ref =
           mip.(0).Declarations.mind_typename
     | _ -> assert false
 
-let new_instance_common ~program_mode ~sort_poly env instid ctx cl =
+let new_instance_common ~program_mode env instid ctx cl =
   let (instid, pl) = instid in
   let sigma, k, u, cty, ctx', ctx, imps, subst, decl =
-    interp_instance_context ~program_mode ~sort_poly env ctx pl cl
+    interp_instance_context ~program_mode env ctx pl cl
   in
   (* The name generator should not be here *)
   let id = instid |> CAst.map (function
@@ -592,14 +591,14 @@ let new_instance_interactive ~locality ~poly ~sort_poly instid ctx cl
     pri opt_props =
   let env = Global.env() in
   let id, env', sigma, k, u, cty, ctx', ctx, imps, subst, decl =
-    new_instance_common ~program_mode:false ~sort_poly env instid ctx cl in
+    new_instance_common ~program_mode:false env instid ctx cl in
   id, do_instance_interactive env env' sigma ?hook ~tac ~locality ~poly ~sort_poly
     cty k ctx ctx' pri decl imps subst id opt_props
 
 let new_instance_program ~locality ~pm ~poly ~sort_poly instid ctx cl opt_props ?hook pri =
   let env = Global.env() in
   let id, env', sigma, k, u, cty, ctx', ctx, imps, subst, decl =
-    new_instance_common ~program_mode:true ~sort_poly env instid ctx cl in
+    new_instance_common ~program_mode:true env instid ctx cl in
   let pm =
     do_instance_program ~pm env env' sigma ?hook ~locality ~poly ~sort_poly
       cty k ctx ctx' pri decl imps subst id opt_props in
@@ -608,7 +607,7 @@ let new_instance_program ~locality ~pm ~poly ~sort_poly instid ctx cl opt_props 
 let new_instance ~locality ~poly ~sort_poly instid ctx cl props ?hook pri =
   let env = Global.env() in
   let id, env', sigma, k, u, cty, ctx', ctx, imps, subst, decl =
-    new_instance_common ~program_mode:false ~sort_poly env instid ctx cl in
+    new_instance_common ~program_mode:false env instid ctx cl in
   do_instance env env' sigma ?hook ~locality ~poly ~sort_poly
     cty k ctx ctx' pri decl imps subst id props;
   id
@@ -617,7 +616,7 @@ let declare_new_instance ~locality ~program_mode ~poly ~sort_poly instid ctx cl 
   let env = Global.env() in
   let (instid, pl) = instid in
   let sigma, k, u, cty, ctx', ctx, imps, subst, decl =
-    interp_instance_context ~program_mode ~sort_poly env ctx pl cl
+    interp_instance_context ~program_mode env ctx pl cl
   in
   do_declare_instance sigma ~locality ~poly ~sort_poly k ctx ctx' pri decl imps subst instid
 
