@@ -16,7 +16,6 @@ open Constrexpr
 
 val interp_definition
   :  program_mode:bool
-  -> sort_poly:bool
   -> Environ.env
   -> Evd.evar_map
   -> Constrintern.internalization_env

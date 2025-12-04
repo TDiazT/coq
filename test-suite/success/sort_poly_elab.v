@@ -539,3 +539,11 @@ Defined.
 
 Check Foo@{Type Prop;}.
 Fail Check Foo@{Prop Type;}.
+
+Class MyClass (A : 𝒰) : 𝒰 := { 
+  my_field : A 
+  }.
+  
+Instance MyInstance : MyClass FooNat := {
+  my_field := FO
+  }.
