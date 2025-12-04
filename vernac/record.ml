@@ -55,7 +55,7 @@ let check_add_elim_constraint ~primitive_proj env sigma record_quality fld_sort 
   else
     sigma
 
-let interp_fields_evars ~primitive_proj ~sort_poly env sigma ~ninds ~nparams record_sort impls_env fld_notations flds =
+let interp_fields_evars ~primitive_proj env sigma ~ninds ~nparams record_sort impls_env fld_notations flds =
   let record_quality = EConstr.ESorts.quality sigma record_sort in
   let _, sigma, impls, locs, newfs, _ =
     List.fold_left2
@@ -67,13 +67,13 @@ let interp_fields_evars ~primitive_proj ~sort_poly env sigma ~ninds ~nparams rec
             (* before the one of t otherwise (see #13166) *)
             let t = if bl = [] then t else mkCProdN bl t in
             let sigma, t, impl =
-              ComAssumption.interp_assumption ~program_mode:false ~sort_poly env sigma impls_env [] t in
+              ComAssumption.interp_assumption ~program_mode:false env sigma impls_env [] t in
             let fld_sort = Retyping.get_sort_of env sigma t in
             let sigma = check_add_elim_constraint ~primitive_proj env sigma record_quality fld_sort in
             sigma, (id, None, t), impl, loc
           | Vernacexpr.DefExpr({CAst.v=id; loc},bl,b,t) ->
             let sigma, (b, t), impl =
-              ComDefinition.interp_definition ~program_mode:false ~sort_poly env sigma impls_env bl None b t in
+              ComDefinition.interp_definition ~program_mode:false env sigma impls_env bl None b t in
             let t = match t with Some t -> t | None -> Retyping.get_type_of env sigma b in
             sigma, (id, Some b, t), impl, loc
         in
@@ -355,7 +355,7 @@ let typecheck_params_and_fields ~kind ~(flags:ComInductive.flags) ~primitive_pro
   let sigma, udecl, variances = Constrintern.interp_cumul_univ_decl_opt env0 udecl in
   let () = List.iter check_parameters_must_be_named params in
   let sigma, (impls_env, ((_env1, params), impls, _paramlocs)) =
-    Constrintern.interp_context_evars ~program_mode:false ~unconstrained_sorts ~sort_poly:flags.sort_poly env0 sigma params in
+    Constrintern.interp_context_evars ~program_mode:false ~unconstrained_sorts env0 sigma params in
   let sigma, typs =
     List.fold_left_map (build_type_telescope ~unconstrained_sorts params env0) sigma records in
   let typs, arity_sorts = List.split typs in
@@ -372,7 +372,7 @@ let typecheck_params_and_fields ~kind ~(flags:ComInductive.flags) ~primitive_pro
   let ninds = List.length arities in
   let nparams = List.length params in
   let fold sigma { DataI.nots; fs; _ } record_sort =
-    interp_fields_evars ~primitive_proj ~sort_poly:flags.sort_poly env_ar_params sigma ~ninds ~nparams record_sort impls_env nots fs
+    interp_fields_evars ~primitive_proj env_ar_params sigma ~ninds ~nparams record_sort impls_env nots fs
   in
   let (sigma, fields) = List.fold_left2_map fold sigma records arity_sorts in
   let field_impls, locs, fields = List.split3 fields in
