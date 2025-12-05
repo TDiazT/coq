@@ -638,11 +638,11 @@ let declare_constant ~loc ?(local = Locality.ImportDefaultBehavior) ~name ~kind 
   let before_univs = Global.universes () in
   let make_constant = function
   (* Logically define the constant and its subproofs, no libobject tampering *)
-    | DefinitionEntry de ->
+    | DefinitionEntry pe ->
       (* We deal with side effects *)
-      (match de.proof_entry_body with
+      (match pe.proof_entry_body with
       | Default { body; opaque = Transparent } ->
-        let de = { de with proof_entry_body = body } in
+        let de = { pe with proof_entry_body = body } in
         let e, ctx = cast_pure_proof_entry de in
         let ubinders = make_ubinders ctx de.proof_entry_universes in
         (* We register the global universes after exporting side-effects, since
@@ -651,7 +651,7 @@ let declare_constant ~loc ?(local = Locality.ImportDefaultBehavior) ~name ~kind 
         Entries.DefinitionEntry e, false, ubinders, None, ctx
       | Default { body; opaque = Opaque (body_uctx, eff) } ->
         let body = ((body, body_uctx), SideEff.get eff) in
-        let de = { de with proof_entry_body = body } in
+        let de = { pe with proof_entry_body = body } in
         let cd, ctx = cast_opaque_proof_entry ImmediateEffectEntry de in
         let ubinders = make_ubinders ctx de.proof_entry_universes in
         let () = Global.push_context_set ctx in
@@ -659,7 +659,7 @@ let declare_constant ~loc ?(local = Locality.ImportDefaultBehavior) ~name ~kind 
       | DeferredOpaque { body; feedback_id } ->
         let map (body, eff) = body, SideEff.get eff in
         let body = Future.chain body map in
-        let de = { de with proof_entry_body = body } in
+        let de = { pe with proof_entry_body = body } in
         let cd, ctx = cast_opaque_proof_entry DeferredEffectEntry de in
         let ubinders = make_ubinders ctx de.proof_entry_universes in
         let () = Global.push_context_set ctx in
@@ -715,7 +715,7 @@ let declare_constant ~loc ?(local = Locality.ImportDefaultBehavior) ~name ~kind 
   let decl, unsafe, ubinders, delayed, ctx = make_constant cd in
   let kn = Global.add_constant ?typing_flags name decl in
   let () =
-    let is_new_constraint (u,_,v as c) =
+    let is_new_constraint (u, _, v as c) =
       match UGraph.check_declared_universes before_univs Univ.Level.Set.(add u (add v empty)) with
       | Ok () -> not (UGraph.check_constraint before_univs c)
       | Error _ -> true

@@ -287,7 +287,7 @@ let pr prqvar_opt ({ qmap; elims; rigid } as m) =
     | None -> mt()
     | Some qid -> str " (named " ++ Libnames.pr_qualid qid ++ str ")"
   in
-  h (prlist_with_sep fnl (fun (u, v) -> QVar.raw_pr u ++ prbody u v ++ prqvar_name u) (QMap.bindings qmap))
+  h (prlist_with_sep fnl (fun (u, v) -> QVar.raw_pr u ++ prbody u v ++ prqvar_name u) (QMap.bindings qmap) ++ str " |= " ++ QGraph.pr prqvar elims)
 
 let elims m = m.elims
 
@@ -299,15 +299,18 @@ let merge_constraints f m =
   { m with elims = f m.elims }
 
 let normalize_elim_constraints m cstrs =
+  let open Quality in
+  (* Since local elimination constraints and the elimination graph are currenlty kept in separate
+     structures, we normalize the local ones and the graph handles its own constraints *)
   let subst q = match q with
     | QConstant _ -> q
     | QVar qv -> repr qv m
   in
   let is_instantiated q = is_qconst q || is_qglobal q in
-  let can_drop (q1,_,q2) = not (is_instantiated q1 && is_instantiated q2) in
-  let subst_cst (q1,c,q2) = (subst q1,c,subst q2) in
+  let cannot_be_dropped (q1, _, q2) = not (is_instantiated q1 && is_instantiated q2) in
+  let subst_cst (q1, c, q2) = (subst q1, c, subst q2) in
   let cstrs = ElimConstraints.map subst_cst cstrs in
-  ElimConstraints.filter can_drop cstrs
+  ElimConstraints.filter cannot_be_dropped cstrs
 end
 
 module UPairSet = UnivMinim.UPairSet
@@ -666,6 +669,7 @@ let process_constraints uctx cstrs =
     Sorts.subst_fn ((qnormalize sorts), subst_univs_universe normalize) s
   in
   let nf_constraint sorts = function
+    | QElimTo (a, b) -> QElimTo (Quality.subst (qnormalize sorts) a, Quality.subst (qnormalize sorts) b)
     | QLeq (a, b) -> QLeq (Quality.subst (qnormalize sorts) a, Quality.subst (qnormalize sorts) b)
     | QEq (a, b) -> QEq (Quality.subst (qnormalize sorts) a, Quality.subst (qnormalize sorts) b)
     | ULub (u, v) -> ULub (level_subst_of normalize u, level_subst_of normalize v)
@@ -750,6 +754,7 @@ let process_constraints uctx cstrs =
       match cst with
     | QEq (a, b) -> unify_quality univs CONV (mk a) (mk b) local
     | QLeq (a, b) -> unify_quality univs CUMUL (mk a) (mk b) local
+    | QElimTo (a, b) -> { local with local_cst = PConstraints.add_quality (a, ElimTo, b) local.local_cst }
     | ULe (l, r) ->
       let local = unify_quality univs CUMUL l r local in
       let l = normalize_sort local.local_sorts l in
@@ -930,6 +935,11 @@ let check_constraint uctx (c:UnivProblem.t) =
         | QConstant QProp, QVar q -> QState.is_above_prop uctx.sort_variables q
         | (QConstant _ | QVar _), _ -> false
       end
+  | QElimTo (a,b) ->
+    let a = nf_quality uctx a in
+    let b = nf_quality uctx b in
+    Quality.equal a b ||
+      Inductive.eliminates_to (QState.elims uctx.sort_variables) a b
   | ULe (u,v) -> UGraph.check_leq_sort (elim_graph uctx) uctx.universes u v
   | UEq (u,v) -> UGraph.check_eq_sort (elim_graph uctx) uctx.universes u v
   | ULub (u,v) -> UGraph.check_eq_level uctx.universes u v
@@ -1131,7 +1141,7 @@ let check_mono_sort_poly_decl uctx decl =
 
 let check_sort_poly_univ_decl uctx decl =
   (* Note: if [decl] is [default_univ_decl], behave like [context uctx] *)
-  let levels, (elim_csts,univ_csts) = uctx.local in
+  let levels, (elim_csts, univ_csts) = uctx.local in
   let qvars = QState.undefined uctx.sort_variables in
   let inst = universe_context_inst decl qvars levels uctx.names in
   let nas = compute_instance_binders uctx inst in
@@ -1151,8 +1161,7 @@ let check_sort_poly_univ_decl uctx decl =
       decl.sort_poly_decl_elim_constraints
     end
   in
-  let uctx = UContext.make nas (inst, (elim_csts,univ_csts)) in
-  uctx
+  UContext.make nas (inst, (elim_csts, univ_csts))
 
 let check_sort_poly_decl ~poly uctx decl =
   let (binders, _) = uctx.names in
@@ -1249,7 +1258,7 @@ let merge ?loc ~sideff rigid uctx uctx' =
   { uctx with names; local; universes;
               initial_universes = initial }
 
-let merge_sort_variables ?loc ~sideff uctx src qvars csts =
+let merge_sort_variables ?loc ~sideff uctx src qvars cstrs =
   let sort_variables =
     QVar.Set.fold (fun qv qstate -> QState.add ~check_fresh:(not sideff) ~rigid:false qv qstate)
       qvars
@@ -1268,7 +1277,7 @@ let merge_sort_variables ?loc ~sideff uctx src qvars csts =
     let qrev = QVar.Set.fold fold qvars (fst (snd uctx.names)) in
     (fst uctx.names, (qrev, snd (snd uctx.names)))
   in
-  let sort_variables = QState.merge_constraints (merge_elim_constraints src uctx csts) sort_variables in
+  let sort_variables = QState.merge_constraints (merge_elim_constraints src uctx cstrs) sort_variables in
   { uctx with sort_variables; names }
 
 let merge_sort_context ?loc ~sideff rigid src uctx ((qvars,levels),csts) =
@@ -1408,7 +1417,7 @@ let subst_univs_context_with_def def usubst (uctx, (elim_csts,univ_csts)) =
   (Level.Set.diff uctx def, PConstraints.make elim_csts @@
                               UnivSubst.subst_univs_constraints usubst univ_csts)
 
-let normalize_univ_variables uctx =
+let normalize_lvl_variables uctx =
   let normalized_variables, def, subst =
     UnivFlex.normalize_univ_variables uctx.univ_variables
   in
@@ -1425,7 +1434,7 @@ let normalize_quality_variables uctx =
   { uctx with local = (lvls, (elim_cstrs, lvl_cstrs)) }
 
 let normalize_variables uctx =
-  let uctx = normalize_univ_variables uctx in
+  let uctx = normalize_lvl_variables uctx in
   normalize_quality_variables uctx
 
 let fix_undefined_variables uctx =
