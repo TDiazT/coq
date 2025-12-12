@@ -230,3 +230,11 @@ let fresh_sort_context_instance ((qs,us),csts) =
       (QVar.Map.empty, QVar.Set.empty)
   in
   (qsubst, usubst), ((qs, us), csts)
+
+
+let pr prq prl ((qualities, lvls), cst as ctx) =
+  let open Pp in
+  let prqs = hov 1 (prlist_with_sep spc prq (QVar.Set.elements qualities)) in
+  let prlvls = hov 1 (prlist_with_sep spc prl (Level.Set.elements lvls)) in
+  if is_empty_sort_context ctx then mt() else
+    hov 0 (h (str "{ ") ++ prqs ++ str " ; " ++ prlvls ++ str " }" ++ str " |=") ++ str " " ++ h (PConstraints.pr prq prl cst)
