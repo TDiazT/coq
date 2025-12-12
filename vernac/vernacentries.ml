@@ -168,8 +168,7 @@ let show_top_evars ~proof =
   pr_evars_int sigma ~shelf ~given_up 1 (Evd.undefined_map sigma)
 
 let show_universes ~proof =
-  let Proof.{goals;sigma} = Proof.data proof in
-  (* TODO: Default to Type and collapse sort variables or use sort poly flag? *)
+  let Proof.{goals; sigma; sort_poly } = Proof.data proof in
   let ctx = Evd.sort_context_set (Evd.minimize_universes sigma) in
   UState.pr (Evd.ustate sigma) ++ fnl () ++
   v 1 (str "Normalized constraints:" ++ cut() ++
