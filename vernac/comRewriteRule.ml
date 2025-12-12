@@ -40,9 +40,8 @@ let do_symbol ~poly ~sort_poly ~unfold_fix udecl (id, typ) =
   let id = id.CAst.v in
   let env = Global.env () in
   let evd, udecl = Constrintern.interp_univ_decl_opt env udecl in
-  let flags = { Pretyping.all_no_fail_flags with sort_polymorphic = sort_poly } in
   let evd, (typ, impls) =
-    Constrintern.(interp_type_evars_impls ~flags ~impls:empty_internalization_env)
+    Constrintern.(interp_type_evars_impls ~impls:empty_internalization_env)
       env evd typ
   in
   Pretyping.check_evars_are_solved ~program_mode:false env evd;

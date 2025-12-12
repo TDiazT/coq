@@ -180,7 +180,6 @@ let interp_cstrs env (sigma, ind_rel) impls params ind arity =
                   use_typeclasses = UseTCForConv;
                   solve_unification_constraints = false }
     in
-    (* TODO: Do we need to pass on the sort poly elab flag or default it to false? *)
     let sigma, (ctyp, cimpl) = interp_type_evars_impls ~flags env sigma ~impls ctyp in
     let ctx, concl = Reductionops.whd_decompose_prod_decls env sigma ctyp in
     let concl_env = EConstr.push_rel_context ctx env in

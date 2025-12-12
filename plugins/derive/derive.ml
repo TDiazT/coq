@@ -56,8 +56,7 @@ let start_deriving ~atts bl suchthat name : Declare.Proof.t =
   let locs = List.rev locs in
   let sigma, env', ctx' = fill_assumptions env sigma ctx' in
   let sigma = Evd.shelve sigma (List.map fst (Evar.Map.bindings (Evd.undefined_map sigma))) in
-  let flags = { Pretyping.all_no_fail_flags with sort_polymorphic = sort_poly } in
-  let sigma, (suchthat, impargs) = Constrintern.interp_type_evars_impls ~flags env' sigma ~impls:impls_env suchthat in
+  let sigma, (suchthat, impargs) = Constrintern.interp_type_evars_impls env' sigma ~impls:impls_env suchthat in
   (* create the initial goals for the proof: |- Type ; |- ?1 ; f:=?2 |- suchthat *)
   let goals =
     let open Proofview in
@@ -70,7 +69,7 @@ let start_deriving ~atts bl suchthat name : Declare.Proof.t =
             aux (EConstr.push_named d env) sigma ctx)) in
     aux env sigma ctx' in
   let kind = Decls.(IsDefinition Definition) in
-  let info = Declare.Info.make ~poly:(Attributes.is_universe_polymorphism ()) ~kind () in
+  let info = Declare.Info.make ~poly ~sort_poly ~kind () in
   let extract_manual = function Some Impargs.{ impl_pos = (na,_,_); impl_expl = Manual; impl_max } -> Some (na, impl_max) | _ -> None in
   let cinfo =
     let open Declare.CInfo in
