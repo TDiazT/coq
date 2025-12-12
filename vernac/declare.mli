@@ -101,6 +101,7 @@ module Info : sig
      start of the proof in the interactive case. *)
   val make
     : ?poly:bool
+    -> ?sort_poly:bool
     -> ?inline : bool
     -> ?kind : Decls.logical_kind
     (** Theorem, etc... *)
@@ -127,6 +128,7 @@ val declare_definition
   :  info:Info.t
   -> cinfo:EConstr.t option CInfo.t
   -> opaque:bool
+  -> sort_poly:bool
   -> body:EConstr.t
   -> ?using:Vernacexpr.section_subset_expr
   -> Evd.evar_map
@@ -434,6 +436,7 @@ type constant_entry =
 
 val prepare_parameter
   : poly:bool
+  -> sort_poly:bool
   -> udecl:UState.universe_decl
   -> types:EConstr.types
   -> Evd.evar_map
@@ -462,6 +465,7 @@ val declare_definition_full
   :  info:Info.t
   -> cinfo:EConstr.t option CInfo.t
   -> opaque:bool
+  -> sort_poly:bool
   -> body:EConstr.t
   -> ?using:Vernacexpr.section_subset_expr
   -> Evd.evar_map
@@ -479,6 +483,7 @@ val build_by_tactic
   :  Environ.env
   -> uctx:UState.t
   -> poly:bool
+  -> sort_poly:bool
   -> typ:EConstr.types
   -> unit Proofview.tactic
   -> Constr.constr * Constr.types option * UState.named_universes_entry * bool * UState.t
@@ -545,6 +550,7 @@ val default_tactic : unit Proofview.tactic ref
 (** Prepare API, to be removed once we provide the corresponding 1-step API *)
 val prepare_obligations
   :  name:Id.t
+  -> sort_poly:bool
   -> ?types:EConstr.t
   -> body:EConstr.t
   -> Environ.env

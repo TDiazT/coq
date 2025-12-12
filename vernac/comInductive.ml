@@ -29,6 +29,7 @@ module RelDecl = Context.Rel.Declaration
 
 type flags = {
   poly : bool;
+  sort_poly : bool;
   cumulative : bool;
   template : bool option;
   finite : Declarations.recursivity_kind;
@@ -292,7 +293,7 @@ let include_constructor_argument evd ~poly ~ctor_sort ~inductive_sort =
 
 type default_dep_elim = DeclareInd.default_dep_elim = DefaultElim | PropButDepElim
 
-let inductive_levels env evd ~poly ~indnames ~arities_explicit arities ctors =
+let inductive_levels env evd ~poly ~sort_poly ~indnames ~arities_explicit arities ctors =
   let inds = List.map2 (fun x ctors ->
       let ctx, s = Reductionops.dest_arity env evd x in
       x, (ctx, s), List.map (compute_constructor_levels env evd) ctors)
@@ -321,7 +322,8 @@ let inductive_levels env evd ~poly ~indnames ~arities_explicit arities ctors =
       inds
   in
 
-  let candidates = prop_lowering_candidates evd ~arities_explicit inds in
+  (* Or should inductive_levels be cut off earlier, e.g. at L646 ? *)
+  let candidates = if sort_poly then [] else prop_lowering_candidates evd ~arities_explicit inds in
   (* Do the lowering. We forget about the generated universe for the
      lowered inductive and rely on universe restriction to get rid of
      it.
@@ -514,8 +516,8 @@ type should_template =
   | MaybeTemplate of { force_template : bool; }
   | NotTemplate
 
-let nontemplate_univ_entry ~poly sigma udecl =
-  let sigma = Evd.collapse_sort_variables sigma in
+let nontemplate_univ_entry ~poly ~sort_poly sigma udecl =
+  let sigma = Evd.collapse_sort_variables ~to_type:(not sort_poly) sigma in
   let uentry, _ as ubinders = Evd.check_univ_decl ~poly sigma udecl in
   let uentry, global = match uentry with
     | UState.Polymorphic_entry uctx -> Polymorphic_ind_entry uctx, Univ.ContextSet.empty
@@ -563,9 +565,9 @@ match user_template, poly with
 | None, false ->
   MaybeTemplate { force_template = false; }
 
-let inductive_univs sigma ~user_template ~poly udecl ~indnames ~ctx_params ~arities ~constructors template_syntax =
+let inductive_univs sigma ~user_template ~poly ~sort_poly udecl ~indnames ~ctx_params ~arities ~constructors template_syntax =
   match should_template ~user_template ~poly with
-  | NotTemplate -> nontemplate_univ_entry ~poly sigma udecl
+  | NotTemplate -> nontemplate_univ_entry ~poly ~sort_poly sigma udecl
   | MaybeTemplate { force_template; } ->
     let info = match List.combine3 arities constructors template_syntax with
     | [arity, (_cnames, constructors), SyntaxAllowsTemplatePoly] ->
@@ -580,14 +582,14 @@ let inductive_univs sigma ~user_template ~poly udecl ~indnames ~ctx_params ~arit
     in
     match info, force_template with
     | Error _, false ->
-      nontemplate_univ_entry ~poly sigma udecl
+      nontemplate_univ_entry ~poly ~sort_poly sigma udecl
     | Error msg, true -> CErrors.user_err Pp.(str msg)
     | Ok (template_univs, pseudo_sort_poly), _ ->
       let has_template = not @@ Univ.Level.Set.is_empty template_univs in
       if force_template || should_auto_template (List.hd indnames) has_template then
         let () = if not has_template then warn_no_template_universe () in
         template_univ_entry sigma udecl ~template_univs pseudo_sort_poly
-      else nontemplate_univ_entry ~poly sigma udecl
+      else nontemplate_univ_entry ~poly ~sort_poly sigma udecl
 
 let check_param = function
 | CLocalDef (na, _, _, _) -> check_named na
@@ -627,6 +629,7 @@ let variance_of_entry ~cumulative ~variances uctx =
 let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~indnames ~arities_explicit ~arities ~template_syntax ~constructors ~env_ar ~private_ind =
   let {
     poly;
+    sort_poly;
     cumulative;
     template;
     finite;
@@ -640,7 +643,7 @@ let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~
         tys)
       constructors
   in
-  let sigma, (default_dep_elim, arities) = inductive_levels env_ar_params sigma ~poly ~indnames ~arities_explicit arities ctor_args in
+  let sigma, (default_dep_elim, arities) = inductive_levels env_ar_params sigma ~poly ~sort_poly ~indnames ~arities_explicit arities ctor_args in
   (* we must minimize before inferring template info.
      For instance before minimization "option" is "option : Type@{u} -> Type@{v}" with "u <= v".
      We want to produce "Type@{u} -> Type@{u}" with "u" template poly.
@@ -648,11 +651,11 @@ let interp_mutual_inductive_constr ~sigma ~flags ~udecl ~variances ~ctx_params ~
 
      We also need to restrict to avoid seeing spurious bounds from below
      (ie v <= template_u with v getting restricted away). *)
-  let sigma = Evd.minimize_universes ~collapse_sort_variables:false sigma in
+  let sigma = Evd.minimize_universes ~collapse_sort_variables:sort_poly ~to_type:(not sort_poly) sigma in
   let sigma = restrict_inductive_universes sigma ctx_params arities constructors in
 
   let sigma, univ_entry, ubinders, global_cstrs =
-    inductive_univs sigma ~user_template:template ~poly udecl
+    inductive_univs sigma ~user_template:template ~poly ~sort_poly udecl
       ~indnames ~ctx_params ~arities ~constructors template_syntax
   in
 
@@ -869,19 +872,21 @@ let extract_params indl =
     | Some (ind',p',_,_) ->
       error_differing_params ~kind:"inductive" (ind,params) (ind',p')
 
-let extract_inductive indl =
-  List.map (fun ({CAst.v=indname},_,ar,lc) -> {
+let extract_inductive ~sort_poly indl =
+  let open Constrexpr_ops in
+  let default_arity = if sort_poly then expr_Univ_sort else expr_Type_sort in
+  List.map (fun ({CAst.v=indname}, _, ar, lc) -> {
     ind_name = indname;
     ind_arity_explicit = Option.has_some ar;
-    ind_arity = Option.default (CAst.make @@ CSort Constrexpr_ops.expr_Type_sort) ar;
-    ind_lc = List.map (fun (_,({CAst.v=id},t)) -> (id,t)) lc
+    ind_arity = Option.default (CAst.make @@ CSort default_arity) ar;
+    ind_lc = List.map (fun (_, ({CAst.v=id}, t)) -> (id, t)) lc
   }) indl
 
-let extract_mutual_inductive_declaration_components indl =
+let extract_mutual_inductive_declaration_components ~sort_poly indl =
   let indl,ntnl = List.split indl in
   let params = extract_params indl in
   let coes = extract_coercions indl in
-  let indl = extract_inductive indl in
+  let indl = extract_inductive ~sort_poly indl in
   (params,indl), coes, List.flatten ntnl
 
 type uniform_inductive_flag =
@@ -917,7 +922,7 @@ let interp_mutual_inductive ~env ~flags ?typing_flags udecl indl ~private_ind ~u
       n.CAst.loc, conslocs)
       indl
   in
-  let (params,indl),coercions,ntns = extract_mutual_inductive_declaration_components indl in
+  let (params,indl),coercions,ntns = extract_mutual_inductive_declaration_components ~sort_poly:flags.sort_poly indl in
   let where_notations = List.map Metasyntax.prepare_where_notation ntns in
   (* Interpret the types *)
   let indl, nuparams = match params with

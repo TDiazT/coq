@@ -70,6 +70,7 @@ val declare_global
 val do_assumptions
   :  program_mode:bool
   -> poly:bool
+  -> sort_poly:bool
   -> scope:Locality.definition_scope
   -> kind:Decls.assumption_object_kind
   -> ?user_warns:Globnames.extended_global_reference UserWarn.with_qf
@@ -81,6 +82,7 @@ val do_assumptions
 val do_context
   :  program_mode:bool
   -> poly:bool
+  -> sort_poly:bool
   -> local_binder_expr list
   -> unit
 

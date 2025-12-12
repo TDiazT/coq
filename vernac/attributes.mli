@@ -51,6 +51,7 @@ end
 
 val raw_attributes : vernac_flags attribute
 
+val sort_polymorphic : bool attribute
 val polymorphic : bool attribute
 val program : bool attribute
 val template : bool option attribute
@@ -169,3 +170,4 @@ val vernac_monomorphic_flag : Loc.t option -> vernac_flag
 (** For internal use. *)
 val universe_polymorphism_option_name : string list
 val is_universe_polymorphism : unit -> bool
+val is_sort_polymorphism : unit -> bool

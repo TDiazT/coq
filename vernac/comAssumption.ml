@@ -185,12 +185,12 @@ let find_binding_kind id impls =
     | _ -> None in
   Option.default Explicit (CList.find_map find impls)
 
-let interp_context_gen ~program_mode ~kind ~autoimp_enable ~coercions env sigma l =
+let interp_context_gen ~program_mode ~sort_poly ~kind ~autoimp_enable ~coercions env sigma l =
   let initial = sigma in
   let sigma, (ienv, ((env, ctx), impls, locs)) = interp_named_context_evars ~program_mode ~autoimp_enable env sigma l in
   (* Note, we must use the normalized evar from now on! *)
   let sigma = solve_remaining_evars all_and_fail_flags env ~initial sigma in
-  let sigma, ctx = Evarutil.finalize sigma @@ fun nf ->
+  let sigma, ctx = Evarutil.finalize ~to_type:(not sort_poly) sigma @@ fun nf ->
     List.map (NamedDecl.map_constr_het (fun x -> x) nf) ctx
   in
   (* reorder, evar-normalize and add implicit status *)
@@ -206,7 +206,7 @@ let interp_context_gen ~program_mode ~kind ~autoimp_enable ~coercions env sigma 
   in
   sigma, List.rev ctx
 
-let do_assumptions ~program_mode ~poly ~scope ~kind ?user_warns ~inline l =
+let do_assumptions ~program_mode ~poly ~sort_poly ~scope ~kind ?user_warns ~inline l =
   let sec = Lib.sections_are_opened () in
   if Dumpglob.dump () then begin
     List.iter (fun (_,(idl,_)) ->
@@ -219,7 +219,7 @@ let do_assumptions ~program_mode ~poly ~scope ~kind ?user_warns ~inline l =
     | Locality.Discharge -> None, process_assumptions_no_udecls l in
   let sigma, udecl = interp_univ_decl_opt env udecl in
   let coercions, ctx = local_binders_of_decls ~poly l in
-  let sigma, ctx = interp_context_gen ~program_mode ~kind ~autoimp_enable:true ~coercions env sigma ctx in
+  let sigma, ctx = interp_context_gen ~program_mode ~sort_poly ~kind ~autoimp_enable:true ~coercions env sigma ctx in
   let univs = Evd.check_univ_decl ~poly sigma udecl in
   declare_context ~try_global_assum_as_instance:false ~scope ~univs ?user_warns ~inline ctx
 
@@ -232,7 +232,7 @@ let warn_context_outside_section =
                           Axiom\" followed by \"Existing Instance\" \
                           for typeclasses.")
 
-let do_context ~program_mode ~poly ctx =
+let do_context ~program_mode ~poly ~sort_poly ctx =
   let sec = Lib.sections_are_opened () in
   if not sec then warn_context_outside_section ();
   if Dumpglob.dump () then begin
@@ -255,7 +255,7 @@ let do_context ~program_mode ~poly ctx =
     if sec then Discharge
     else Global (if Lib.is_modtype () then ImportDefaultBehavior else ImportNeedQualified)
   in
-  let sigma, ctx = interp_context_gen ~program_mode ~kind:Context ~autoimp_enable:false ~coercions:Id.Set.empty env sigma ctx in
+  let sigma, ctx = interp_context_gen ~program_mode ~sort_poly ~kind:Context ~autoimp_enable:false ~coercions:Id.Set.empty env sigma ctx in
   let univs = Evd.univ_entry ~poly sigma in
   declare_context ~try_global_assum_as_instance:true ~scope ~univs ~inline:Declaremods.NoInline ctx
 
@@ -266,6 +266,6 @@ let interp_context env sigma ctx =
     List.rev (snd (List.fold_left_i (fun n (subst, ctx) (id,b,t,impl) ->
         let decl = (id, Option.map (Vars.subst_vars subst) b, Vars.subst_vars subst t, impl) in
         (id :: subst, decl :: ctx)) 1 ([],[]) ctx)) in
-  let sigma, ctx = interp_context_gen ~program_mode:false ~kind:Context ~autoimp_enable:false ~coercions:Id.Set.empty env sigma ctx in
+  let sigma, ctx = interp_context_gen ~program_mode:false ~sort_poly:false ~kind:Context ~autoimp_enable:false ~coercions:Id.Set.empty env sigma ctx in
   let ctx = List.map (fun (id,b,t,(impl,_,_,_)) -> (id.CAst.v,b,t,impl)) ctx in
   sigma, reverse_rel_context_of_reverse_named_context ctx

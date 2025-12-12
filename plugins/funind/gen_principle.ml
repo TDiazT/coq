@@ -205,7 +205,7 @@ let build_functional_principle env (sigma : Evd.evar_map) old_princ_type sorts f
   let uctx = Evd.ustate sigma in
   let typ = EConstr.of_constr new_principle_type in
   let body, typ, univs, _safe, _uctx =
-    Declare.build_by_tactic env ~uctx ~poly:false ~typ ftac
+    Declare.build_by_tactic env ~uctx ~poly:false ~sort_poly:false ~typ ftac
   in
   (* uctx was ignored before *)
   let hook = Declare.Hook.make (hook new_principle_type) in
@@ -389,7 +389,7 @@ let register_struct is_rec (rec_order, fixpoint_exprl) =
         CErrors.user_err
           Pp.(str "Body of Function must be given.")
     in
-    ComDefinition.do_definition ?loc:fname.CAst.loc ~name:fname.CAst.v ~poly:false
+    ComDefinition.do_definition ?loc:fname.CAst.loc ~name:fname.CAst.v ~poly:false ~sort_poly:false
       ~kind:Decls.Definition univs binders None body (Some rtype);
     let evd, rev_pconstants =
       List.fold_left
@@ -407,7 +407,7 @@ let register_struct is_rec (rec_order, fixpoint_exprl) =
     in
     (None, evd, List.rev rev_pconstants)
   | _ ->
-    let pm, p = ComFixpoint.do_mutually_recursive ~refine:false ~program_mode:false ~poly:false ~kind:(IsDefinition Fixpoint) (CFixRecOrder rec_order, fixpoint_exprl) in
+    let pm, p = ComFixpoint.do_mutually_recursive ~refine:false ~program_mode:false ~poly:false ~sort_poly:false ~kind:(IsDefinition Fixpoint) (CFixRecOrder rec_order, fixpoint_exprl) in
     assert (Option.is_empty pm && Option.is_empty p);
     let evd, rev_pconstants =
       List.fold_left
