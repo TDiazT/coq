@@ -231,7 +231,7 @@ let encapsulate_Fix_sub env sigma recname ctx body ccl (extradecl, rel, relargty
   let sigma, fix_sub = Typing.solve_evars env sigma fix_sub in
   sigma, tupled_ctx, tuple_value, mkApp (fix_sub, [|intern_body_lam|])
 
-let build_wellfounded env sigma poly udecl {CAst.v=recname; loc} ctx body ccl impls rel_measure =
+let build_wellfounded env sigma poly sort_poly udecl {CAst.v=recname; loc} ctx body ccl impls rel_measure =
   let len = Context.Rel.length ctx in
   (* Restore body in the context of binders + extradecl *)
   let _, body = decompose_lambda_n_decls sigma (len + 1) body in
@@ -251,7 +251,7 @@ let build_wellfounded env sigma poly udecl {CAst.v=recname; loc} ctx body ccl im
     else
       recname, it_mkProd_or_LetIn ccl ctx in
   let body, typ, _uctx, evmap, obls =
-    Declare.Obls.prepare_obligations ~name:recname_func ~body:def ~types:typ env sigma in
+    Declare.Obls.prepare_obligations ~name:recname_func ~sort_poly ~body:def ~types:typ env sigma in
   let hook, impls =
     if len > 1 then
       let hook { Declare.Hook.S.dref; uctx; obls; _ } =
@@ -544,10 +544,10 @@ let build_program_fixpoint env sigma rec_sign possible_guard fixnames fixrs fixd
     ignore (Pretyping.esearch_guard env sigma possible_guard fixdecls) in
   List.split3 (List.map3 (collect_evars env sigma rec_sign) fixnames fixdefs fixtypes)
 
-let finish_obligations env sigma rec_sign possible_guard poly udecl = function
+let finish_obligations env sigma rec_sign possible_guard poly sort_poly udecl = function
   | {fixnames=[recname];fixrs;fixdefs=[body];fixtypes=[ccl];fixctxs=[ctx];fiximps=[imps];fixntns;fixwfs=[Some wf]} ->
     let sigma = Evarutil.nf_evar_map sigma in (* use nf_evar_map_undefined?? *)
-    let sigma, recname, body, ccl, impls, obls, hook = build_wellfounded env sigma poly udecl recname ctx (Option.get body) ccl imps wf in
+    let sigma, recname, body, ccl, impls, obls, hook = build_wellfounded env sigma poly sort_poly udecl recname ctx (Option.get body) ccl imps wf in
     let fixrs = List.map (EConstr.ERelevance.kind sigma) fixrs in
     sigma, {fixnames=[recname];fixrs;fixdefs=[Some body];fixtypes=[ccl];fixctxs=[ctx];fiximps=[impls];fixntns;fixwfs=[Some wf]}, [obls], hook
   | {fixnames;fixrs;fixdefs;fixtypes;fixctxs;fiximps;fixntns;fixwfs} ->
@@ -581,7 +581,7 @@ let do_mutually_recursive ?pm ~refine ~program_mode ?(use_inference_hook=false) 
 
   let sigma, ({fixdefs=bodies;fixrs;fixtypes;fixwfs} as fix), obls, hook =
     match pm with
-    | Some pm -> finish_obligations env sigma rec_sign possible_guard poly udecl fix
+    | Some pm -> finish_obligations env sigma rec_sign possible_guard poly sort_poly udecl fix
     | None -> finish_regular env sigma use_inference_hook fix in
   let info = Declare.Info.make ?scope ?clearbody ~kind ~poly ~udecl ?hook ?typing_flags ?user_warns ~ntns:fix.fixntns () in
   let cinfo = build_recthms fix in
