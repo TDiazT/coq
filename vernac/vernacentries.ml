@@ -169,10 +169,10 @@ let show_top_evars ~proof =
 let show_universes ~proof =
   let Proof.{goals; sigma; poly} = Proof.data proof in
   let to_type = PolyFlags.collapse_sort_variables poly in
-  let ctx = Evd.universe_context_set (Evd.minimize_universes ~to_type sigma) in
+  let ctx = Evd.sort_context_set (Evd.minimize_universes ~to_type sigma) in
   UState.pr (Evd.ustate sigma) ++ fnl () ++
   v 1 (str "Normalized constraints:" ++ cut() ++
-       PConstraints.ContextSet.pr (Termops.pr_evd_qvar sigma) (Termops.pr_evd_level sigma) ctx)
+       UnivGen.pr (Termops.pr_evd_qvar sigma) (Termops.pr_evd_level sigma) ctx)
 
 (* Simulate the Intro(s) tactic *)
 let show_intro ~proof all =
