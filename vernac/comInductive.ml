@@ -873,19 +873,21 @@ let extract_params indl =
     | Some (ind',p',_,_) ->
       error_differing_params ~kind:"inductive" (ind,params) (ind',p')
 
-let extract_inductive indl =
-  List.map (fun ({CAst.v=indname},_,ar,lc) -> {
+let extract_inductive ~sort_poly indl =
+  let open Constrexpr_ops in
+  let default_arity = if sort_poly then expr_Univ_sort else expr_Type_sort in
+  List.map (fun ({CAst.v=indname}, _, ar, lc) -> {
     ind_name = indname;
     ind_arity_explicit = Option.has_some ar;
-    ind_arity = Option.default (CAst.make @@ CSort Constrexpr_ops.expr_Type_sort) ar;
-    ind_lc = List.map (fun (_,({CAst.v=id},t)) -> (id,t)) lc
+    ind_arity = Option.default (CAst.make @@ CSort default_arity) ar;
+    ind_lc = List.map (fun (_, ({CAst.v=id}, t)) -> (id, t)) lc
   }) indl
 
-let extract_mutual_inductive_declaration_components indl =
+let extract_mutual_inductive_declaration_components ~sort_poly indl =
   let indl,ntnl = List.split indl in
   let params = extract_params indl in
   let coes = extract_coercions indl in
-  let indl = extract_inductive indl in
+  let indl = extract_inductive ~sort_poly indl in
   (params,indl), coes, List.flatten ntnl
 
 type uniform_inductive_flag =
@@ -921,7 +923,7 @@ let interp_mutual_inductive ~env ~flags ?typing_flags udecl indl ~private_ind ~u
       n.CAst.loc, conslocs)
       indl
   in
-  let (params,indl),coercions,ntns = extract_mutual_inductive_declaration_components indl in
+  let (params,indl),coercions,ntns = extract_mutual_inductive_declaration_components ~sort_poly:flags.sort_poly indl in
   let where_notations = List.map Metasyntax.prepare_where_notation ntns in
   (* Interpret the types *)
   let indl, nuparams = match params with
