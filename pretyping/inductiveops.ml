@@ -259,10 +259,13 @@ let squash_elim_sort sigma squash rtnsort =
      add_unif_if_cannot_elim_into Evd.set_eq_sort Sorts.sprop
      (* Squashed inductive in SProp, return sort must be SProp. *)
   | SquashToQuality (QConstant QType) ->
-         add_unif_if_cannot_elim_into Evd.set_leq_sort Sorts.set
+     add_unif_if_cannot_elim_into Evd.set_leq_sort Sorts.set
      (* Sort poly squash to type *)
   | SquashToQuality (QVar q) ->
-     add_unif_if_cannot_elim_into Evd.set_leq_sort (Sorts.qsort q Univ.Universe.type0)
+     let q' = ESorts.quality sigma rtnsort in
+     if Inductive.eliminates_to (Evd.elim_graph sigma) (QVar q) q'
+     then sigma
+     else Evd.set_elim_to sigma (QVar q) q'
 
 (* [s] is the sort of an inductive definition. *)
 let loc_indsort_to_quality sigma u s =
