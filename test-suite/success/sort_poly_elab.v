@@ -499,14 +499,13 @@ Module Records.
   Fail Check fun (A:SProp) (x y : R6 A) =>
           eq_refl : Conversion.box _ x.(R6f2 _) = Conversion.box _ y.(R6f2 _).
 
-  (* Elimination constraints are accumulated by fields, even on independent fields *)
+  (* Elimination constraints are added specifically for each projection *)
   #[projections(primitive=no)] Record R7 (A:Type) := { R7f1 : A; R7f2 : nat }.
   (* Record R7@{α α0 ; u |} (A : Type@{α ; u}) : Type@{α0 ; max(Set,u)}  *)
   (* R7f1@{α α0 ; u |} : forall A : Type@{α ; u}, R7@{α α0 ; u} A -> A
       α α0 ; u |= α0 -> α *)
   (* R7f2@{α α0 ; u |} : forall A : Type@{α ; u}, R7@{α α0 ; u} A -> nat
-      α α0 ; u |= α0 -> α
-                  α0 -> Type *)
+      α α0 ; u |= α0 -> Type *)
 
   (* sigma as a primitive record works better *)
   Record Rsigma@{s;u v|} (A:Type@{s;u}) (B:A -> Type@{s;v}) : Type@{s;max(u,v)}
@@ -534,7 +533,7 @@ Module Records.
 
   Unset Primitive Projections.
 
-  (* Elimination constraints are accumulated by fields *)
+  (* Elimination constraints are added specifically for each projection *)
   Record R8 := {
     R8f1 : Type;
     R8f2 : R8f1
@@ -545,6 +544,94 @@ Module Records.
   (* R8f2@{α α0 ; u |} : forall r : R8@{α α0 ; u}, R8f1@{α α0 ; u} r
       α α0 ; u |= α -> α0
                   α -> Type *)
+
+  Inductive eq {A} x : A -> Type :=
+  eq_refl : eq x x.
+
+  Inductive bool := true | false.
+
+  (* Elimination constraints are added specifically for each projection *)
+  Record R (A : Type) := {
+    x : A ;
+    y : eq x x ;
+    z : bool
+  }.
+  (* R@{α α0 α1 α2 ; u u0} : forall _ : Type@{α0 ; u}, Type@{α ; max(Set,u,u0)} *)
+  (* x@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), A *)
+     (* α α0 α1 α2 ; u u0 |= α -> α0 *)
+  (* y@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (r : R@{α α0 α1 α2 ; u u0} A),
+                              @eq@{α0 α1 ; u u0} A (x@{α α0 α1 α2 ; u u0} A r) (x@{α α0 α1 α2 ; u u0} A r) *)
+     (* α α0 α1 α2 ; u u0 |= α -> α0
+                             α -> α1 *)
+  (* z@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), bool@{α2 ; } *)
+     (* α α0 α1 α2 ; u u0 |= α -> α2 *)
+
+ (* Elimination constraints added to the inductive itself and propagated to projections.
+    Elimination constraints of projections are specifically for each projection *)
+  Record R' := {
+    a1 : Type ;
+    a2 : Type ;
+    a3 : bool;
+    a4 : forall (b : bool),
+          match b with
+          | true => match a3 with (* Depends on a3 *)
+                    | true => a1
+                    | false => a2
+                    end
+          | false => bool
+          end
+    }.
+   (* R'@{α α0 α1 α2 ; u u0} : Type@{α ; max(Set,u+1,u0+1)} *)
+       (* α α0 α1 α2 ; u u0 |= α1 -> Type
+                               α2 -> Type,
+                               u0 <= u *)
+  (* a3@{α α0 α1 α2 ; u u0} : forall _ : R'@{α α0 α1 α2 ; u u0}, bool@{α1 ; }  *)
+      (* α α0 α1 α2 ; u u0 |= α -> α1
+                              α1 -> Type
+                              α2 -> Type,
+                              u0 <= u *)
+  (* a4@{α α0 α1 α2 ; u u0} : ... *)
+      (* α α0 α1 α2 ; u u0 |= α -> α0
+                              α -> α1
+                              α -> Type
+                              α1 -> Type
+                              α2 -> Type,
+                              u0 <= u *)
+
+  Record R'' := {
+    b1 : bool ;
+    b2 : let r := {| x := true; y := eq_refl true ; z := b1 |} in
+         if z bool r then
+          bool
+        else
+          bool ;
+    b3 : bool
+  }.
+  (* R''@{α α0 α1 α2 α3 α4 α5 ; u} : Type@{α ; Set} *)
+       (* α α0 α1 α2 α3 α4 α5 ; u |= α0 -> α3
+                                     α3 -> Type *)
+  (* b2 : ... *)
+    (* α α0 α1 α2 α3 α4 α5 ; u |= α -> α3
+                              α -> α4
+                              α0 -> α3
+                              α3 -> Type *)
+  (* b3 : ... *)
+    (* α α0 α1 α2 α3 α4 α5 ; u |= α -> α5
+                              α0 -> α3
+                              α3 -> Type *)
+
+  Record R''' := {
+    b : bool ;
+    f : let f' :=
+          fix F n :=
+            if b then n else O
+        in
+        match f' O with
+        | O => bool
+        | S _ => nat
+        end
+        }.
+
 End Records.
 
 Module Class.
