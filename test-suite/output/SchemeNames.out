@@ -114,8 +114,8 @@ Expands to: Constant SchemeNames.fooSProp_cases_nodep
 Declared in library SchemeNames, line 40, characters 7-43
 File "./output/SchemeNames.v", line 49, characters 2-36:
 The command has indeed failed with message:
-Cannot extract computational content from proposition 
-"fooSProp".
+Unexpected error during scheme creation: This expression would enforce a non-declared elimination constraint between
+SProp and Type
 File "./output/SchemeNames.v", line 61, characters 2-45:
 The command has indeed failed with message:
 Incorrect elimination in the inductive type "fooProp":
@@ -234,8 +234,8 @@ Expands to: Constant SchemeNames.fooProp_case
 Declared in library SchemeNames, line 90, characters 7-41
 File "./output/SchemeNames.v", line 99, characters 2-35:
 The command has indeed failed with message:
-Cannot extract computational content from proposition 
-"fooProp".
+Unexpected error during scheme creation: This expression would enforce a non-declared elimination constraint between
+Prop and Type
 fooSet_inds :
 forall P : fooSet -> SProp, P aS -> P bS -> forall f : fooSet, P f
 
