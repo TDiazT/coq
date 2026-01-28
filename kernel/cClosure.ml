@@ -128,6 +128,7 @@ type evar_handler = {
   evar_repack : Evar.t * constr list -> constr;
   evar_irrelevant : constr pexistential -> bool;
   qvar_irrelevant : Sorts.QVar.t -> bool;
+  qual_equal : Sorts.Quality.t -> Sorts.Quality.t -> bool;
   abstr_const : Constant.t -> (unit, (unit -> Vmemitcodes.to_patch) Vmemitcodes.pbody_code) Declarations.pconstant_body;
 }
 
@@ -138,6 +139,7 @@ let default_evar_handler env = {
   qvar_irrelevant = (fun q ->
       assert (Sorts.QVar.Set.mem q (Environ.qvars env));
       false);
+  qual_equal = Sorts.Quality.equal;
   abstr_const = fun _ -> assert false;
 }
 
@@ -176,7 +178,6 @@ type clos_infos = {
 let info_flags info = info.i_flags
 let info_env info = info.i_cache.i_env
 let info_univs info = info.i_cache.i_univs
-let info_elims info = Environ.qualities (info_env info)
 
 let push_relevance infos x =
   { infos with i_relevances = Range.cons x.binder_relevance infos.i_relevances }
@@ -352,6 +353,9 @@ let is_irrelevant info r = match info.i_cache.i_mode with
   | Sorts.Irrelevant -> true
   | Sorts.RelevanceVar q -> info.i_cache.i_sigma.qvar_irrelevant q
   | Sorts.Relevant -> false
+
+let eq_quality info q1 q2 =
+  info.i_cache.i_sigma.qual_equal q1 q2
 
 (************************************************************************)
 
@@ -935,6 +939,18 @@ let get_branch infos ci pms cterm br e =
     let ext = push (Array.length args - 1) [] ctx in
     (br, usubs_consv (Array.rev_of_list ext) e)
 
+let has_valid_relevance u ind_relevance flds =
+  let ind_relevance = UVars.subst_instance_relevance u ind_relevance in
+  let flds = Array.map (UVars.subst_instance_relevance u) flds in
+  match ind_relevance with
+  | Sorts.Irrelevant -> true
+  | Sorts.Relevant -> Array.exists Sorts.is_relevant flds
+  | Sorts.RelevanceVar qv ->
+    Array.for_all (fun r -> match r with
+        | Sorts.Relevant -> true
+        | Sorts.Irrelevant -> false
+        | Sorts.RelevanceVar qv' -> Sorts.QVar.equal qv qv') flds
+
 (** [eta_expand_ind_stack env ind c s t] computes stacks corresponding
     to the conversion of the eta expansion of t, considered as an inhabitant
     of ind, and the Constructor c of this inductive type applied to arguments
@@ -949,11 +965,16 @@ let eta_expand_ind_stack env (ind,u) m (f, s') =
   let mib = lookup_mind (fst ind) env in
   (* disallow eta-exp for non-primitive records *)
   if not (mib.mind_finite == BiFinite) then raise Not_found;
+  let ind_relevance = ind_relevance ind env in
   match Declareops.inductive_make_projections ind mib with
   | Some (projs, has_eta) ->
     let () =
       match has_eta with
       | NoEta -> raise Not_found
+      | MaybeEta ->
+        let relevances = Array.map snd projs in
+        if not @@ has_valid_relevance u ind_relevance relevances
+        then raise Not_found
       | AlwaysEta -> ()
     in
     (* (Construct, pars1 .. parsm :: arg1...argn :: []) ~= (f, s') ->
