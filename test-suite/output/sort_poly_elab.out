@@ -1,0 +1,444 @@
+qsort@{α ; u} : Type@{u+1}
+(* α ; u |=  *)
+
+qsort is universe polymorphic
+qsort is transparent
+Expands to: Constant sort_poly_elab.qsort
+Declared in library sort_poly_elab, line 7, characters 11-16
+qsort'@{α ; u u0} : Type@{u}
+(* α ; u u0 |= u0 < u *)
+
+qsort' is universe polymorphic
+qsort' is transparent
+Expands to: Constant sort_poly_elab.qsort'
+Declared in library sort_poly_elab, line 10, characters 11-17
+sigma@{α α0 α1 ; u u0} :
+forall (A : Type@{α ; u}) (_ : forall _ : A, Type@{α0 ; u0}),
+Type@{α1 ; max(u,u0)}
+(* α α0 α1 ; u u0 |=  *)
+
+sigma is universe polymorphic
+sigma@{α α0 α1 ; u u0} may only be eliminated to produce values whose type is in sort quality α1,
+  unless instantiated such that the qualities α, α0 and Prop
+  are equal to the instantiation of α1, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α1.
+Arguments sigma A%_type_scope B%_function_scope
+Expands to: Inductive sort_poly_elab.Inductives.sigma
+Declared in library sort_poly_elab, line 14, characters 12-17
+sigma_srect@{α α0 α1 α2 ; u u0 u1} :
+forall (A : Type@{α0 ; u}) (B : forall _ : A, Type@{α1 ; u0})
+  (P : forall _ : sigma@{α0 α1 α ; u u0} A B, Type@{α2 ; u1})
+  (_ : forall (x : A) (b : B x), P (pair@{α0 α1 α ; u u0} A B x b))
+  (s : sigma@{α0 α1 α ; u u0} A B),
+P s
+(* α α0 α1 α2 ; u u0 u1 |= α -> α2 *)
+
+sigma_srect is universe polymorphic
+Arguments sigma_srect A%_type_scope (B P H)%_function_scope s
+sigma_srect is transparent
+Expands to: Constant sort_poly_elab.Inductives.sigma_srect
+Declared in library sort_poly_elab, line 18, characters 13-24
+pr1@{α α0 α1 ; u u0} :
+forall {A : Type@{α1 ; u}} {B : forall _ : A, Type@{α ; u0}}
+  (_ : sigma@{α1 α α0 ; u u0} A B),
+A
+(* α α0 α1 ; u u0 |= α0 -> α1 *)
+
+pr1 is universe polymorphic
+Arguments pr1 {A}%_type_scope {B}%_function_scope s
+pr1 is transparent
+Expands to: Constant sort_poly_elab.Inductives.pr1
+Declared in library sort_poly_elab, line 26, characters 13-16
+pr2@{α α0 α1 ; u u0} :
+forall {A : Type@{α1 ; u}} {B : forall _ : A, Type@{α ; u0}}
+  (s : sigma@{α1 α α0 ; u u0} A B),
+B (@pr1@{α α0 α1 ; u u0} A B s)
+(* α α0 α1 ; u u0 |= α0 -> α
+                     α0 -> α1 *)
+
+pr2 is universe polymorphic
+Arguments pr2 {A}%_type_scope {B}%_function_scope s
+pr2 is transparent
+Expands to: Constant sort_poly_elab.Inductives.pr2
+Declared in library sort_poly_elab, line 30, characters 13-16
+R1@{α α0 ; u} :
+forall _ : Type@{α ; u}, Type@{α0 ; u}
+(* α α0 ; u |= α0 -> α *)
+
+R1 is universe polymorphic
+R1 has primitive projections with eta conversion depending on sort instantiation.
+Arguments R1 A%_type_scope
+Expands to: Inductive sort_poly_elab.Records.R1
+Declared in library sort_poly_elab, line 38, characters 9-11
+R2@{α α0 ; u} :
+forall _ : Type@{α ; u}, Type@{α0 ; max(Set,u)}
+(* α α0 ; u |=  *)
+
+R2 is universe polymorphic
+R2@{α α0 ; u} may only be eliminated to produce values whose type is in sort quality α0,
+  unless instantiated such that the qualities α, Prop and Type
+  are equal to the instantiation of α0, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α0.
+Arguments R2 A%_type_scope
+Expands to: Inductive sort_poly_elab.Records.R2
+Declared in library sort_poly_elab, line 42, characters 9-11
+R2f1@{α α0 ; u} :
+forall (A : Type@{α ; u}) (_ : R2@{α α0 ; u} A), A
+(* α α0 ; u |= α0 -> α *)
+
+R2f1 is universe polymorphic
+R2f1 is a projection of R2
+Arguments R2f1 A%_type_scope r
+R2f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R2f1
+Declared in library sort_poly_elab, line 42, characters 26-30
+R2f2@{α α0 ; u} :
+forall (A : Type@{α ; u}) (_ : R2@{α α0 ; u} A), nat
+(* α α0 ; u |= α0 -> Type *)
+
+R2f2 is universe polymorphic
+R2f2 is a projection of R2
+Arguments R2f2 A%_type_scope r
+R2f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R2f2
+Declared in library sort_poly_elab, line 42, characters 36-40
+R3@{α α0 α1 ; } : Type@{α ; Set}
+(* α α0 α1 ;  |=  *)
+
+R3 is universe polymorphic
+R3@{α α0 α1 ; } may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the qualities α0, α1 and Prop
+  are equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Records.R3
+Declared in library sort_poly_elab, line 55, characters 9-11
+R3f1@{α α0 α1 ; } :
+forall _ : R3@{α α0 α1 ; }, bool@{α0 ; }
+(* α α0 α1 ;  |= α -> α0 *)
+
+R3f1 is universe polymorphic
+R3f1 is a projection of R3
+Arguments R3f1 r
+R3f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R3f1
+Declared in library sort_poly_elab, line 56, characters 4-8
+R3f2@{α α0 α1 ; } :
+forall _ : R3@{α α0 α1 ; }, bool@{α1 ; }
+(* α α0 α1 ;  |= α -> α1 *)
+
+R3f2 is universe polymorphic
+R3f2 is a projection of R3
+Arguments R3f2 r
+R3f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R3f2
+Declared in library sort_poly_elab, line 57, characters 4-8
+R4@{α α0 α1 α2 ; u u0} :
+forall _ : Type@{α0 ; u}, Type@{α ; max(Set,u,u0)}
+(* α α0 α1 α2 ; u u0 |=  *)
+
+R4 is universe polymorphic
+R4@{α α0 α1 α2 ; u u0} may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the qualities α0, α1, α2 and Prop
+  are equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Arguments R4 A%_type_scope
+Expands to: Inductive sort_poly_elab.Records.R4
+Declared in library sort_poly_elab, line 64, characters 9-11
+R4f1@{α α0 α1 α2 ; u u0} :
+forall (A : Type@{α0 ; u}) (_ : R4@{α α0 α1 α2 ; u u0} A), A
+(* α α0 α1 α2 ; u u0 |= α -> α0 *)
+
+R4f1 is universe polymorphic
+R4f1 is a projection of R4
+Arguments R4f1 A%_type_scope r
+R4f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R4f1
+Declared in library sort_poly_elab, line 65, characters 4-8
+R4f2@{α α0 α1 α2 ; u u0} :
+forall (A : Type@{α0 ; u}) (r : R4@{α α0 α1 α2 ; u u0} A),
+@eq@{α0 α1 ; u u0} A (R4f1@{α α0 α1 α2 ; u u0} A r)
+  (R4f1@{α α0 α1 α2 ; u u0} A r)
+(* α α0 α1 α2 ; u u0 |= α -> α0
+                        α -> α1 *)
+
+R4f2 is universe polymorphic
+R4f2 is a projection of R4
+Arguments R4f2 A%_type_scope r
+R4f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R4f2
+Declared in library sort_poly_elab, line 66, characters 4-8
+R4f3@{α α0 α1 α2 ; u u0} :
+forall (A : Type@{α0 ; u}) (_ : R4@{α α0 α1 α2 ; u u0} A), bool@{α2 ; }
+(* α α0 α1 α2 ; u u0 |= α -> α2 *)
+
+R4f3 is universe polymorphic
+R4f3 is a projection of R4
+Arguments R4f3 A%_type_scope r
+R4f3 is transparent
+Expands to: Constant sort_poly_elab.Records.R4f3
+Declared in library sort_poly_elab, line 67, characters 4-8
+R5@{α α0 α1 α2 α3 α4 α5 ; u} :
+Type@{α ; Set}
+(* α α0 α1 α2 α3 α4 α5 ; u |= α0 -> α3
+                              α3 -> Type *)
+
+R5 is universe polymorphic
+R5@{α α0 α1 α2 α3 α4 α5 ; u} may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the qualities α3, α4, α5 and Prop
+  are equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Records.R5
+Declared in library sort_poly_elab, line 74, characters 9-11
+R5f1@{α α0 α1 α2 α3 α4 α5 ; u} :
+forall _ : R5@{α α0 α1 α2 α3 α4 α5 ; u}, bool@{α3 ; }
+(* α α0 α1 α2 α3 α4 α5 ; u |= α -> α3
+                              α0 -> α3
+                              α3 -> Type *)
+
+R5f1 is universe polymorphic
+R5f1 is a projection of R5
+Arguments R5f1 r
+R5f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R5f1
+Declared in library sort_poly_elab, line 75, characters 4-8
+R5f2@{α α0 α1 α2 α3 α4 α5 ; u} :
+forall r : R5@{α α0 α1 α2 α3 α4 α5 ; u},
+let r0 : R4@{α0 α1 α2 α3 ; Set u} bool@{α1 ; } :=
+  Build_R4@{α0 α1 α2 α3 ; Set u} bool@{α1 ; } true@{α1 ; }
+    (@eq_refl@{α1 α2 ; Set u} bool@{α1 ; } true@{α1 ; })
+    (R5f1@{α α0 α1 α2 α3 α4 α5 ; u} r)
+  in
+match R4f3@{α0 α1 α2 α3 ; Set u} bool@{α1 ; } r0 return Type@{α4 ; Set} with
+| true => bool@{α4 ; }
+| false => bool@{α4 ; }
+end
+(* α α0 α1 α2 α3 α4 α5 ; u |= α -> α3
+                              α -> α4
+                              α0 -> α3
+                              α3 -> Type *)
+
+R5f2 is universe polymorphic
+R5f2 is a projection of R5
+Arguments R5f2 r
+R5f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R5f2
+Declared in library sort_poly_elab, line 76, characters 4-8
+R5f3@{α α0 α1 α2 α3 α4 α5 ; u} :
+forall _ : R5@{α α0 α1 α2 α3 α4 α5 ; u}, bool@{α5 ; }
+(* α α0 α1 α2 α3 α4 α5 ; u |= α -> α5
+                              α0 -> α3
+                              α3 -> Type *)
+
+R5f3 is universe polymorphic
+R5f3 is a projection of R5
+Arguments R5f3 r
+R5f3 is transparent
+Expands to: Constant sort_poly_elab.Records.R5f3
+Declared in library sort_poly_elab, line 81, characters 4-8
+R6@{α α0 ; } : Type@{α ; Set}
+(* α α0 ;  |= α0 -> Type *)
+
+R6 is universe polymorphic
+R6@{α α0 ; } may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the qualities α0, Prop and Type
+  are equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Records.R6
+Declared in library sort_poly_elab, line 88, characters 9-11
+R6f1@{α α0 ; } :
+forall _ : R6@{α α0 ; }, bool@{α0 ; }
+(* α α0 ;  |= α -> α0
+              α0 -> Type *)
+
+R6f1 is universe polymorphic
+R6f1 is a projection of R6
+Arguments R6f1 r
+R6f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R6f1
+Declared in library sort_poly_elab, line 89, characters 4-8
+R6f2@{α α0 ; } :
+forall r : R6@{α α0 ; },
+let f' : forall _ : nat, nat :=
+  fix F (n : nat) : nat :=
+    match R6f1@{α α0 ; } r return nat with
+    | true => n
+    | false => O
+    end
+  in
+match f' O return Set with
+| O => bool@{Type ; }
+| S _ => nat
+end
+(* α α0 ;  |= α -> α0
+              α -> Type
+              α0 -> Type *)
+
+R6f2 is universe polymorphic
+R6f2 is a projection of R6
+Arguments R6f2 r
+R6f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R6f2
+Declared in library sort_poly_elab, line 90, characters 4-8
+R7@{α α0 α1 α2 ; u u0} :
+Type@{α ; max(Set,u+1,u0+1)}
+(* α α0 α1 α2 ; u u0 |= α1 -> Type
+                        α2 -> Type,
+                        u0 <= u *)
+
+R7 is universe polymorphic
+R7@{α α0 α1 α2 ; u u0} may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the qualities α0, α1, Prop and Type
+  are equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Records.R7
+Declared in library sort_poly_elab, line 103, characters 9-11
+R7f1@{α α0 α1 α2 ; u u0} :
+forall _ : R7@{α α0 α1 α2 ; u u0}, Type@{α0 ; u}
+(* α α0 α1 α2 ; u u0 |= α -> Type
+                        α1 -> Type
+                        α2 -> Type,
+                        u0 <= u *)
+
+R7f1 is universe polymorphic
+R7f1 is a projection of R7
+Arguments R7f1 r
+R7f1 is transparent
+Expands to: Constant sort_poly_elab.Records.R7f1
+Declared in library sort_poly_elab, line 104, characters 4-8
+R7f2@{α α0 α1 α2 ; u u0} :
+forall _ : R7@{α α0 α1 α2 ; u u0}, Type@{α0 ; u0}
+(* α α0 α1 α2 ; u u0 |= α -> Type
+                        α1 -> Type
+                        α2 -> Type,
+                        u0 <= u *)
+
+R7f2 is universe polymorphic
+R7f2 is a projection of R7
+Arguments R7f2 r
+R7f2 is transparent
+Expands to: Constant sort_poly_elab.Records.R7f2
+Declared in library sort_poly_elab, line 105, characters 4-8
+R7f3@{α α0 α1 α2 ; u u0} :
+forall _ : R7@{α α0 α1 α2 ; u u0}, bool@{α1 ; }
+(* α α0 α1 α2 ; u u0 |= α -> α1
+                        α1 -> Type
+                        α2 -> Type,
+                        u0 <= u *)
+
+R7f3 is universe polymorphic
+R7f3 is a projection of R7
+Arguments R7f3 r
+R7f3 is transparent
+Expands to: Constant sort_poly_elab.Records.R7f3
+Declared in library sort_poly_elab, line 106, characters 4-8
+R7f4@{α α0 α1 α2 ; u u0} :
+forall (r : R7@{α α0 α1 α2 ; u u0}) (b : bool@{α2 ; }),
+match b return Type@{α0 ; u} with
+| true =>
+    match R7f3@{α α0 α1 α2 ; u u0} r return Type@{α0 ; u} with
+    | true => R7f1@{α α0 α1 α2 ; u u0} r
+    | false => R7f2@{α α0 α1 α2 ; u u0} r
+    end
+| false => bool@{α0 ; }
+end
+(* α α0 α1 α2 ; u u0 |= α -> α0
+                        α -> α1
+                        α -> Type
+                        α1 -> Type
+                        α2 -> Type,
+                        u0 <= u *)
+
+R7f4 is universe polymorphic
+R7f4 is a projection of R7
+Arguments R7f4 r b
+R7f4 is transparent
+Expands to: Constant sort_poly_elab.Records.R7f4
+Declared in library sort_poly_elab, line 107, characters 4-8
+C1@{α α0 ; u} : forall _ : Type@{α ; u}, Type@{α0 ; u}
+(* α α0 ; u |=  *)
+
+C1 is universe polymorphic
+C1@{α α0 ; u} may only be eliminated to produce values whose type is in sort quality α0,
+  unless instantiated such that the qualities α and Prop
+  are equal to the instantiation of α0, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α0.
+Arguments C1 A%_type_scope
+Expands to: Inductive sort_poly_elab.Classes.C1
+Declared in library sort_poly_elab, line 126, characters 8-10
+C1f1@{α α0 ; u} :
+forall {A : Type@{α ; u}} {_ : C1@{α α0 ; u} A}, A
+(* α α0 ; u |= α0 -> α *)
+
+C1f1 is universe polymorphic
+C1f1 is a projection of C1
+Arguments C1f1 {A}%_type_scope {C1}
+C1f1 is transparent
+Expands to: Constant sort_poly_elab.Classes.C1f1
+Declared in library sort_poly_elab, line 127, characters 4-8
+C1I1@{α α0 ; u} : C1@{α α0 ; u} unit@{α ; u}
+(* α α0 ; u |=  *)
+
+C1I1 is universe polymorphic
+C1I1 is transparent
+Expands to: Constant sort_poly_elab.Classes.C1I1
+Declared in library sort_poly_elab, line 134, characters 11-15
+C1ProgramI1@{α α0 ; u} : C1@{α α0 ; u} unit@{α ; u}
+(* α α0 ; u |=  *)
+
+C1ProgramI1 is universe polymorphic
+C1ProgramI1 is transparent
+Expands to: Constant sort_poly_elab.Classes.C1ProgramI1
+Declared in library sort_poly_elab, line 137, characters 19-30
+C1RefineI1@{α α0 ; u} : C1@{α α0 ; u} unit@{α ; u}
+(* α α0 ; u |=  *)
+
+C1RefineI1 is universe polymorphic
+C1RefineI1 is transparent
+Expands to: Constant sort_poly_elab.Classes.C1RefineI1
+Declared in library sort_poly_elab, line 144, characters 11-21
+C1InteractiveI1@{α α0 ; u} : C1@{α α0 ; u} unit@{α ; u}
+(* α α0 ; u |=  *)
+
+C1InteractiveI1 is universe polymorphic
+C1InteractiveI1 is transparent
+Expands to: Constant sort_poly_elab.Classes.C1InteractiveI1
+Declared in library sort_poly_elab, line 149, characters 11-26
+C1AxiomaticI1@{α α0 ; u} : C1@{α α0 ; u} unit@{α ; u}
+(* α α0 ; u |=  *)
+
+C1AxiomaticI1 is universe polymorphic
+Expands to: Constant sort_poly_elab.Classes.C1AxiomaticI1
+Declared in library sort_poly_elab, line 153, characters 9-22
+C1InductiveI1@{α ; u} : Type@{α ; u}
+(* α ; u |=  *)
+
+C1InductiveI1 is universe polymorphic
+C1InductiveI1@{α ; u} may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the quality Prop
+  is equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Classes.C1InductiveI1
+Declared in library sort_poly_elab, line 157, characters 12-25
+File "./output/sort_poly_elab.v", line 167, characters 0-76:
+The command has indeed failed with message:
+Sort metavariables must be collapsed to Type in universe monomorphic constructions.
+Attr@{α ; u} : Type@{α ; u}
+(* α ; u |=  *)
+
+Attr is universe polymorphic
+Attr@{α ; u} may only be eliminated to produce values whose type is in sort quality α,
+  unless instantiated such that the quality Prop
+  is equal to the instantiation of α, or to qualities smaller
+  (SProp <= Prop <= Type, and all variables <= Type)
+  than the instantiation of α.
+Expands to: Inductive sort_poly_elab.Attr
+Declared in library sort_poly_elab, line 171, characters 10-14

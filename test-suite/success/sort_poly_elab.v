@@ -551,80 +551,59 @@ Module Records.
   Inductive bool := true | false.
 
   (* Elimination constraints are added specifically for each projection *)
-  Record R (A : Type) := {
-    x : A ;
-    y : eq x x ;
-    z : bool
+  Record R9 := {
+    R9f1 : bool ;
+    R9f2 : bool ;
   }.
-  (* R@{α α0 α1 α2 ; u u0} : forall _ : Type@{α0 ; u}, Type@{α ; max(Set,u,u0)} *)
-  (* x@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), A *)
+  (* R9@{α α0 α1 ; } : Type@{α ; Set} *)
+  (* R9f1@{α α0 α1 ; } : forall _ : R9@{α α0 α1 ; }, bool@{α0 ; } *)
+        (* α α0 α1 ;  |= α -> α0 *)
+  (* R9f2@{α α0 α1 ; } : forall _ : R9@{α α0 α1 ; }, bool@{α1 ; } *)
+        (* α α0 α1 ;  |= α -> α1 *)
+
+  (* Elimination constraints are added specifically for each projection *)
+  Record R10 (A : Type) := {
+    R10f1 : A ;
+    R10f2 : eq R10f1 R10f1 ;
+    R10f3 : bool
+  }.
+  (* R10@{α α0 α1 α2 ; u u0} : forall _ : Type@{α0 ; u}, Type@{α ; max(Set,u,u0)} *)
+  (* R10f1@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), A *)
      (* α α0 α1 α2 ; u u0 |= α -> α0 *)
-  (* y@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (r : R@{α α0 α1 α2 ; u u0} A),
+  (* R10f2@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (r : R@{α α0 α1 α2 ; u u0} A),
                               @eq@{α0 α1 ; u u0} A (x@{α α0 α1 α2 ; u u0} A r) (x@{α α0 α1 α2 ; u u0} A r) *)
      (* α α0 α1 α2 ; u u0 |= α -> α0
                              α -> α1 *)
-  (* z@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), bool@{α2 ; } *)
+  (* R10f3@{α α0 α1 α2 ; u u0} : forall (A : Type@{α0 ; u}) (_ : R@{α α0 α1 α2 ; u u0} A), bool@{α2 ; } *)
      (* α α0 α1 α2 ; u u0 |= α -> α2 *)
 
- (* Elimination constraints added to the inductive itself and propagated to projections.
-    Elimination constraints of projections are specifically for each projection *)
-  Record R' := {
-    a1 : Type ;
-    a2 : Type ;
-    a3 : bool;
-    a4 : forall (b : bool),
-          match b with
-          | true => match a3 with (* Depends on a3 *)
-                    | true => a1
-                    | false => a2
-                    end
-          | false => bool
-          end
-    }.
-   (* R'@{α α0 α1 α2 ; u u0} : Type@{α ; max(Set,u+1,u0+1)} *)
-       (* α α0 α1 α2 ; u u0 |= α1 -> Type
-                               α2 -> Type,
-                               u0 <= u *)
-  (* a3@{α α0 α1 α2 ; u u0} : forall _ : R'@{α α0 α1 α2 ; u u0}, bool@{α1 ; }  *)
-      (* α α0 α1 α2 ; u u0 |= α -> α1
-                              α1 -> Type
-                              α2 -> Type,
-                              u0 <= u *)
-  (* a4@{α α0 α1 α2 ; u u0} : ... *)
-      (* α α0 α1 α2 ; u u0 |= α -> α0
-                              α -> α1
-                              α -> Type
-                              α1 -> Type
-                              α2 -> Type,
-                              u0 <= u *)
-
-  Record R'' := {
-    b1 : bool ;
-    b2 : let r := {| x := true; y := eq_refl true ; z := b1 |} in
-         if z bool r then
+  Record R11 := {
+    R11f1 : bool ;
+    R11f2 : let r := {| R10f1 := true; R10f2 := eq_refl true ; R10f3 := R11f1 |} in
+         if R10f3 bool r then
           bool
         else
           bool ;
-    b3 : bool
+    R11f3 : bool
   }.
-  (* R''@{α α0 α1 α2 α3 α4 α5 ; u} : Type@{α ; Set} *)
+  (* R11@{α α0 α1 α2 α3 α4 α5 ; u} : Type@{α ; Set} *)
        (* α α0 α1 α2 α3 α4 α5 ; u |= α0 -> α3
                                      α3 -> Type *)
-  (* b2 : ... *)
+  (* R11f2 : ... *)
     (* α α0 α1 α2 α3 α4 α5 ; u |= α -> α3
                               α -> α4
                               α0 -> α3
                               α3 -> Type *)
-  (* b3 : ... *)
+  (* R11f3 : ... *)
     (* α α0 α1 α2 α3 α4 α5 ; u |= α -> α5
                               α0 -> α3
                               α3 -> Type *)
 
-  Record R''' := {
-    b : bool ;
-    f : let f' :=
+  Record R12 := {
+    R12f1 : bool ;
+    R12f2 : let f' :=
           fix F n :=
-            if b then n else O
+            if R12f1 then n else O
         in
         match f' O with
         | O => bool
@@ -632,37 +611,77 @@ Module Records.
         end
         }.
 
+ (* Elimination constraints added to the inductive itself and propagated to projections.
+    Elimination constraints of projections are specifically for each projection *)
+  Record R13 := {
+    R13f1 : Type ;
+    R13f2 : Type ;
+    R13f3 : bool;
+    R13f4 : forall (b : bool),
+          match b with
+          | true => match R13f3 with (* Depends on R13f3 *)
+                    | true => R13f1
+                    | false => R13f2
+                    end
+          | false => bool
+          end
+    }.
+   (* R13@{α α0 α1 α2 ; u u0} : Type@{α ; max(Set,u+1,u0+1)} *)
+       (* α α0 α1 α2 ; u u0 |= α1 -> Type
+                               α2 -> Type,
+                               u0 <= u *)
+  (* R13f3@{α α0 α1 α2 ; u u0} : forall _ : R'@{α α0 α1 α2 ; u u0}, bool@{α1 ; }  *)
+      (* α α0 α1 α2 ; u u0 |= α -> α1
+                              α1 -> Type
+                              α2 -> Type,
+                              u0 <= u *)
+  (* R13f4@{α α0 α1 α2 ; u u0} : ... *)
+      (* α α0 α1 α2 ; u u0 |= α -> α0
+                              α -> α1
+                              α -> Type
+                              α1 -> Type
+                              α2 -> Type,
+                              u0 <= u *)
+
+
 End Records.
 
-Module Class.
+Module Classes.
 
-  Class MyClass (A : Type) : Type := {
-    my_field : A
+  Class C1 (A : Type) : Type := {
+    C1f1 : A
   }.
 
   Inductive unit : Type := tt.
 
-  Instance MyInstance : MyClass unit := { my_field := tt }.
+  Instance C1I1 : C1 unit := { C1f1 := tt }.
 
-  Program Instance MyProgramInstance : MyClass unit.
+  Program Instance C1ProgramI1 : C1 unit.
   Next Obligation.
     exact tt.
   Defined.
 
   #[refine]
-  Instance MyRefineInstance : MyClass unit := { my_field := _ }.
+  Instance C1RefineI1 : C1 unit := { C1f1 := _ }.
   exact tt.
   Defined.
 
-  Instance MyInteractiveInstance : MyClass unit.
+  Instance C1InteractiveI1 : C1 unit.
   Proof. constructor. exact tt. Defined.
 
-  Axiom (MyAxiomaticInstance : MyClass unit).
-  Existing Instance MyAxiomaticInstance.
+  Axiom (C1AxiomaticI1 : C1 unit).
+  Existing Instance C1AxiomaticI1.
 
-  Inductive MyInductive := mkInductive.
+  Inductive C1InductiveI1 := mkInductive.
 
-  Existing Class MyInductive.
+  Existing Class C1InductiveI1.
 
+End Classes.
 
-End Class.
+Unset Universe Polymorphism.
+Set Collapse Sorts ToType.
+Fail #[universes(collapse_sort_variables=no)]
+Inductive Attr : Type := attr.
+
+#[universes(polymorphic, collapse_sort_variables=no)]
+Inductive Attr : Type := attr.
