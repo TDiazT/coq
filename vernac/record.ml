@@ -570,53 +570,16 @@ let declare_proj_coercion_instance ~flags ref from =
  * elim_cstrs_map keeps the mapping of (field name -> elim constraints) *)
 let collect_elim_cstrs elim_cstrs_map proj_type =
   let open Sorts in
-  let rec aux c =
-    (* Aux function to fold over arrays *)
-    let array_fold_aux cs =
-      Array.fold_left
-        (fun elim_cstrs c -> ElimConstraints.union elim_cstrs (aux c))
-        ElimConstraints.empty cs
-    in
+  let rec aux_fold elim_cstrs c =
     match Constr.kind c with
-    | Cast (c, _, _) -> aux c
-    | Prod (_, t, b) | Lambda (_, t, b) ->
-        let t_elim_cstrs = aux t in
-        let b_elim_cstrs = aux b in
-        ElimConstraints.union t_elim_cstrs b_elim_cstrs
-    | LetIn (_, c, t, b) ->
-        let c_elim_cstrs = aux c in
-        let t_elim_cstrs = aux t in
-        let b_elim_cstrs = aux b in
-        let elim_cstrs = ElimConstraints.union c_elim_cstrs t_elim_cstrs in
-        ElimConstraints.union elim_cstrs b_elim_cstrs
-    | App (f, args) ->
-        let f_elim_cstrs = aux f in
-        let args_elim_cstrs = array_fold_aux args in
-        ElimConstraints.union f_elim_cstrs args_elim_cstrs
     | Const (c, _) -> (
         let label = Constant.label c in
         match Id.Map.find_opt label elim_cstrs_map with
-        | None -> ElimConstraints.empty
-        | Some elim_cstrs -> elim_cstrs)
-    | Case (_, _, params, ((_, p), _), _, c, branches) ->
-        let params_elim_cstrs = array_fold_aux params in
-        let return_elim_cstrs = aux p in
-        let discr_elim_cstrs = aux c in
-        let branches = Array.map snd branches in
-        let branches_elim_cstrs = array_fold_aux branches in
-        let elim_cstrs =
-          ElimConstraints.union params_elim_cstrs return_elim_cstrs
-        in
-        let elim_cstrs = ElimConstraints.union elim_cstrs discr_elim_cstrs in
-        ElimConstraints.union elim_cstrs branches_elim_cstrs
-    | Fix (_, (_, tys, bs)) | CoFix (_, (_, tys, bs)) ->
-        let tys_elim_cstrs = array_fold_aux tys in
-        let bs_elim_cstrs = array_fold_aux bs in
-        ElimConstraints.union tys_elim_cstrs bs_elim_cstrs
-    | Rel _ -> ElimConstraints.empty
-    | _ -> ElimConstraints.empty
+        | None -> elim_cstrs
+        | Some c_elim_cstrs -> ElimConstraints.union elim_cstrs c_elim_cstrs)
+    | _ -> Constr.fold aux_fold elim_cstrs c
   in
-  aux proj_type
+  aux_fold ElimConstraints.empty proj_type
 
 (* Checks whether the record's quality can be eliminated into the projection's
    quality. If not, then it adds the elimination constraint. *)

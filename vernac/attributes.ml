@@ -297,13 +297,12 @@ let polymorphic =
 let { Goptions.get = is_polymorphic_inductive_cumulativity } =
   Goptions.declare_bool_option_and_ref ~key:["Polymorphic"; "Inductive"; "Cumulativity"] ~value:false ()
 
-let sort_key = "collapse_sort_variables"
-
 let { Goptions.get = should_collapse_sort_variables  } =
   Goptions.declare_bool_option_and_ref ~key:["Collapse"; "Sorts"; "ToType"] ~value:true ()
 
 let collapse_sort_variables =
-  qualify_attribute sort_key (bool_attribute ~name:"collapse_sort_variables")
+  let name = "collapse_sort_variables" in
+  qualify_attribute ukey (bool_attribute ~name)
 
 let cumulative kind =
   match kind with
