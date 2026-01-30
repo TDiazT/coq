@@ -822,7 +822,8 @@ let evar_handler sigma =
     in
     { cb with const_body = drop_opaque cb.const_body; const_body_code = drop_code cb.const_body_code }
   in
-  { CClosure.evar_expand; evar_irrelevant; evar_repack; qvar_irrelevant; abstr_const }
+  let qual_equal q1 q2 = UState.check_eq_quality sigma.universes q1 q2 in
+  { CClosure.evar_expand; evar_irrelevant; evar_repack; qvar_irrelevant; qual_equal; abstr_const }
 
 let existential_type_opt d (n, args) =
   match find_undefined d n with
@@ -1043,11 +1044,11 @@ let universe_subst evd =
 let merge_universe_context_set ?loc ?(sideff=false) rigid evd uctx' =
   {evd with universes = UState.merge_universe_context ?loc ~sideff rigid evd.universes uctx'}
 
-let merge_sort_context_set ?loc ?(sideff=false) ?src rigid evd ctx' =
-  {evd with universes = UState.merge_sort_context ?loc ~sideff rigid ?src evd.universes ctx'}
+let merge_sort_context_set ?loc ?sort_rigid ?(sideff=false) ?src rigid evd ctx' =
+  {evd with universes = UState.merge_sort_context ?loc ?sort_rigid ~sideff rigid ?src evd.universes ctx'}
 
-let with_sort_context_set ?loc ?src rigid d (a, ctx) =
-  (merge_sort_context_set ?loc ?src rigid d ctx, a)
+let with_sort_context_set ?loc ?sort_rigid ?src rigid d (a, ctx) =
+  (merge_sort_context_set ?loc ?sort_rigid ?src rigid d ctx, a)
 
 let new_univ_level_variable ?loc ?name rigid evd =
   let uctx', u = UState.new_univ_variable ?loc rigid name evd.universes in
@@ -1061,9 +1062,14 @@ let new_quality_variable ?loc ?name evd =
   let uctx, q = UState.new_sort_variable ?loc ?name evd.universes in
   {evd with universes = uctx}, q
 
-let new_sort_variable ?loc rigid sigma =
+let new_sort_info ?loc ?sort_rigid ?name rigid sigma =
   let (sigma, u) = new_univ_variable ?loc rigid sigma in
-  let uctx, q = UState.new_sort_variable sigma.universes in
+  let uctx, q = UState.new_sort_variable ?sort_rigid ?name sigma.universes in
+  ({ sigma with universes = uctx }, q, u)
+
+let new_sort_variable ?loc ?sort_rigid ?name rigid sigma =
+  let (sigma, u) = new_univ_variable ?loc rigid sigma in
+  let uctx, q = UState.new_sort_variable ?loc ?sort_rigid ?name sigma.universes in
   ({ sigma with universes = uctx }, Sorts.qsort q u)
 
 let add_forgotten_univ d u =
@@ -1109,8 +1115,8 @@ let fresh_constant_instance ?loc ?(rigid=univ_flexible) env evd c =
   let (u, ctx) = fresh_instance env evd (GlobRef.ConstRef c) in
   with_sort_context_set ?loc rigid ~src:UState.Internal evd ((c, u), ctx)
 
-let fresh_inductive_instance ?loc ?(rigid=univ_flexible) env evd i =
-  with_sort_context_set ?loc rigid ~src:UState.Internal evd (UnivGen.fresh_inductive_instance env i)
+let fresh_inductive_instance ?loc ?sort_rigid ?(rigid=univ_flexible) env evd i =
+  with_sort_context_set ?loc ?sort_rigid rigid ~src:UState.Internal evd (UnivGen.fresh_inductive_instance env i)
 
 let fresh_constructor_instance ?loc ?(rigid=univ_flexible) env evd c =
   with_sort_context_set ?loc rigid ~src:UState.Internal evd (UnivGen.fresh_constructor_instance env c)
@@ -1180,16 +1186,14 @@ let set_elim_to evd q1 q2 =
   add_constraints evd @@ UnivProblem.Set.singleton (QElimTo (q1, q2))
 
 let check_eq evd s s' =
-  let quals = elim_graph evd in
   let ustate = evd.universes in
   let univs = UState.ugraph ustate in
-  UGraph.check_eq_sort quals univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
+  UGraph.check_eq_sort Sorts.Quality.equal univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
 
 let check_leq evd s s' =
-  let quals = elim_graph evd in
   let ustate = evd.universes in
   let univs = UState.ugraph ustate in
-  UGraph.check_leq_sort quals univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
+  UGraph.check_leq_sort Sorts.Quality.equal univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
 
 let check_univ_constraints evd csts =
   UGraph.check_constraints csts (UState.ugraph evd.universes)
@@ -1199,6 +1203,11 @@ let check_elim_constraints evd csts =
 
 let check_poly_constraints evd (qcsts,ucsts) =
   check_elim_constraints evd qcsts && check_univ_constraints evd ucsts
+
+let check_quality_constraints evd qcst =
+  let fold (q1, q2) accu = UnivProblem.Set.add (UnivProblem.QEq (q1, q2)) accu in
+  let qcst = UVars.QPairSet.fold fold qcst UnivProblem.Set.empty in
+  UState.check_constraints evd.universes qcst
 
 let fix_undefined_variables evd =
   { evd with universes = UState.fix_undefined_variables evd.universes }

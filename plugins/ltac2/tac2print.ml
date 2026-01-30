@@ -716,8 +716,8 @@ let pr_rawexpr_gen lvl ~avoid c =
     let pr_arg (pat, arg, ty) =
       let bnd = match ty with
         | Some ty ->
-          paren (pr_name pat.CAst.v ++ spc() ++ str ":" ++ spc() ++ pr_glbtype_gen tynames T5_l ty)
-        | None -> pr_name pat.CAst.v
+          paren (pr_name pat ++ spc() ++ str ":" ++ spc() ++ pr_glbtype_gen tynames T5_l ty)
+        | None -> pr_name pat
       in
       hov (-2) (bnd  ++ str " :=" ++ spc() ++ hov 2 (pr_rawexpr E5 avoid arg))
     in
@@ -991,6 +991,15 @@ let () =
       prvect_with_sep pr_semicolon (fun a -> pr_valexpr env sigma a arg) v ++
       spc () ++ str "|]"
   | _ -> assert false
+  in
+  register_val_printer kn { val_printer }
+
+let () =
+  let kn = KerName.make (MPfile (Libnames.dirpath_of_string "Ltac2.Module")) (Id.of_string "t") in
+  let val_printer _env _sigma v _arg =
+    let v = to_modpath v in
+    (* XXX nametab based printing? if so share with tac2core *)
+    str "module:(" ++ ModPath.print v ++ str ")"
   in
   register_val_printer kn { val_printer }
 
