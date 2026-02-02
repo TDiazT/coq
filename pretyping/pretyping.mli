@@ -43,11 +43,11 @@ type possible_guard = {
 
 val search_guard :
   ?loc:Loc.t -> env -> evar_map ->
-  possible_guard -> Constr.rec_declaration -> evar_map * int array option
+  possible_guard -> Constr.rec_declaration -> (evar_map * int array) option
 
 val esearch_guard :
   ?loc:Loc.t -> env -> evar_map -> possible_guard ->
-  EConstr.rec_declaration -> evar_map * int array option
+  EConstr.rec_declaration -> (evar_map * int array) option
 
 val esearch_fix_guard : (* For Fixpoints only *)
   ?loc:Loc.t -> env -> evar_map -> possible_fix_indices ->
@@ -55,7 +55,7 @@ val esearch_fix_guard : (* For Fixpoints only *)
 
 val esearch_cofix_guard :
   ?loc:Loc.t -> env -> evar_map ->
-  EConstr.rec_declaration -> evar_map
+  EConstr.rec_declaration -> unit
 
 type typing_constraint =
   | IsType (** Necessarily a type *)
