@@ -1032,7 +1032,12 @@ let make_recursive_bodies ?sigma env ~typing_flags ~possible_guard ~rec_declarat
   (* We need sigma to check for elimination constraints. In most cases it's None, except for
      [declare_mutual_definitions] where we get it from UState. *)
   let sigma = Option.default (Evd.from_env env) sigma in
-  let _, indexes = Pretyping.search_guard env sigma possible_guard rec_declaration in
+  let res = Pretyping.search_guard env sigma possible_guard rec_declaration in
+  (* We are forgetting about sigma here -- probably missing something *)
+  let sigma, indexes = match res with
+    | None -> sigma, None
+    | Some (sigma, indexes) -> sigma, Some indexes
+  in
   let mkbody i = match indexes with
   | Some indexes -> Constr.mkFix ((indexes,i), rec_declaration)
   | None -> Constr.mkCoFix (i, rec_declaration) in

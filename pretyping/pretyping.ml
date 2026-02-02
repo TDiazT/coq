@@ -83,7 +83,7 @@ type possible_guard = {
   possible_fix_indices : possible_fix_indices;
 } (* Note: if no fix indices are given, it has to be a cofix *)
 
-exception Found of int array option
+exception Found of (evar_map * int array) option
 
 let nf_fix sigma (nas, cs, ts) =
   let inj c = EConstr.to_constr ~abort_on_undefined_evars:false sigma c in
@@ -95,7 +95,7 @@ let search_guard ?loc env sigma {possibly_cofix; possible_fix_indices} fixdefs =
   if one_fix_possibility && not possibly_cofix then
     let indexes = Array.of_list (List.map List.hd possible_fix_indices) in
     let fix = ((indexes, 0), fixdefs) in
-    try let sigma = check_fix_with_elims env sigma fix in sigma, Some indexes
+    try let sigma = check_fix_with_elims env sigma fix in Some (sigma, indexes)
     with reraise ->
       let (e, info) = Exninfo.capture reraise in
       let info = Option.cata (fun loc -> Loc.add_loc info loc) info loc in
@@ -105,7 +105,7 @@ let search_guard ?loc env sigma {possibly_cofix; possible_fix_indices} fixdefs =
     if zero_fix_possibility && possibly_cofix then
       (* Maybe can we skip this check since it will be done in the kernel again *)
       let cofix = (0, fixdefs) in
-      try let () = check_cofix ~evars:(Evd.evar_handler sigma) env cofix in sigma, None
+      try let () = check_cofix ~evars:(Evd.evar_handler sigma) env cofix in None
       with reraise ->
         let (e, info) = Exninfo.capture reraise in
         let info = Option.cata (fun loc -> Loc.add_loc info loc) info loc in
@@ -127,7 +127,7 @@ let search_guard ?loc env sigma {possibly_cofix; possible_fix_indices} fixdefs =
                error when totality is assumed but the strutural argument is
                not specified. *)
             try
-              let _ = check_fix_with_elims env sigma fix in raise (Found (Some indexes))
+              let sigma = check_fix_with_elims env sigma fix in raise (Found (Some (sigma, indexes)))
             with TypeError _ -> ())
           combinations in
        let () =
@@ -137,7 +137,7 @@ let search_guard ?loc env sigma {possibly_cofix; possible_fix_indices} fixdefs =
            with TypeError _ -> () in
        let errmsg = "Cannot guess decreasing argument of fix." in
        user_err ?loc (Pp.str errmsg)
-     with Found indexes -> sigma, indexes
+     with Found indexes -> indexes
 
 let esearch_guard ?loc env sigma indexes fix =
   (* not sure if we still need to nf_fix when calling search_guard with ~evars
@@ -150,14 +150,11 @@ let esearch_guard ?loc env sigma indexes fix =
     Loc.raise ?loc (PretypeError (env, sigma, TypingError (of_type_error err)))
 
 let esearch_fix_guard ?loc env sigma possible_fix_indices fix =
-  let sigma, indices = (esearch_guard ?loc env sigma {possibly_cofix=false; possible_fix_indices} fix) in
-  sigma, Option.get indices
+  Option.get (esearch_guard ?loc env sigma {possibly_cofix=false; possible_fix_indices} fix)
 
 let esearch_cofix_guard ?loc env sigma cofix =
-  let sigma, indices = esearch_guard ?loc env sigma {possibly_cofix=true; possible_fix_indices=[]} cofix in
-  assert (Option.is_empty indices);
-  sigma
-
+  let res = esearch_guard ?loc env sigma {possibly_cofix=true; possible_fix_indices=[]} cofix in
+  assert (Option.is_empty res)
 
 (* To force universe name declaration before use *)
 
@@ -900,7 +897,7 @@ struct
         | GCoFix i ->
           let fixdecls = (names,ftys,fdefs) in
           let cofix = (i, fixdecls) in
-          let sigma = esearch_cofix_guard ?loc !!env sigma fixdecls in
+          let () = esearch_cofix_guard ?loc !!env sigma fixdecls in
           sigma, make_judge (mkCoFix cofix) ftys.(i)
       in
       discard_trace @@ inh_conv_coerce_to_tycon ?loc ~flags env sigma fixj tycon
