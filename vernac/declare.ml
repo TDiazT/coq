@@ -1041,7 +1041,7 @@ let make_recursive_bodies ?sigma env ~typing_flags ~possible_guard ~rec_declarat
   let mkbody i = match indexes with
   | Some indexes -> Constr.mkFix ((indexes,i), rec_declaration)
   | None -> Constr.mkCoFix (i, rec_declaration) in
-  List.map_i (fun i typ -> (mkbody i, typ)) 0 (Array.to_list (pi2 rec_declaration)), indexes
+  List.map_i (fun i typ -> (mkbody i, typ)) 0 (Array.to_list (pi2 rec_declaration)), sigma, indexes
 
 let prepare_recursive_declaration cinfo fixtypes fixrs fixdefs =
   let fixnames = List.map (fun CInfo.{name} -> name) cinfo in
@@ -1063,7 +1063,7 @@ let declare_mutual_definitions ~info ~cinfo ~opaque ~eff ~uctx ~bodies ~possible
   let fixtypes = List.map (fun CInfo.{typ} -> typ) cinfo in
   let rec_declaration = prepare_recursive_declaration cinfo fixtypes fixrelevances bodies in
   let sigma = Some (Evd.from_ctx uctx) in
-  let bodies_types, indexes = make_recursive_bodies ?sigma env ~typing_flags ~rec_declaration ~possible_guard in
+  let bodies_types, sigma, indexes = make_recursive_bodies ?sigma env ~typing_flags ~rec_declaration ~possible_guard in
   let entries = List.map (fun (body, typ) -> (body, Some typ)) bodies_types in
   let entries_for_using = List.map (fun (body, typ) -> (body, Some typ)) bodies_types in
   let using = interp_mutual_using env cinfo entries_for_using using in
@@ -2097,15 +2097,17 @@ let prepare_proof ?(warn_incomplete=true) { proof; pinfo; sideff } =
     | None -> raise_non_ground_proof evd pid c
   in
   let proofs = List.map (fun (_, body, typ) -> (to_constr body, to_constr typ)) initial_goals in
-  let proofs = match pinfo.possible_guard with
-    | None -> proofs
+  let proofs, evd = match pinfo.possible_guard with
+    | None -> proofs, evd
     | Some (possible_guard, fixrelevances) ->
       let env = Safe_typing.push_private_constants (Global.env()) (SideEff.get eff) in
       let fixbodies, fixtypes = List.split proofs in
       let fixrelevances = List.map (EConstr.ERelevance.kind evd) fixrelevances in
       let rec_declaration = prepare_recursive_declaration pinfo.cinfo fixtypes fixrelevances fixbodies in
       let typing_flags = pinfo.info.typing_flags in
-      fst (make_recursive_bodies ~sigma:evd env ~typing_flags ~possible_guard ~rec_declaration) in
+      let proofs, sigma, _ = (make_recursive_bodies ~sigma:evd env ~typing_flags ~possible_guard ~rec_declaration) in
+      proofs, evd
+  in
   let proofs = List.map (fun (body, typ) -> (body, Some typ)) proofs in
   let () = if warn_incomplete then check_incomplete_proof evd in
   { output_entries = proofs; output_ustate = Evd.ustate evd; output_sideff = SideEff.concat eff sideff }
