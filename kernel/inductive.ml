@@ -1667,31 +1667,32 @@ let inductive_of_mutfix ?evars env ((nvect, bodynum), (names, types, bodies as r
             else anomaly ~label:"check_one_fix" (Pp.str "Bad occurrence of recursive call.")
         | _ -> raise_err env i (NotEnoughAbstractionInFixBody k)
     in
-    let ((ind, inst), bs) = check_occur fixenv 1 def in
-    (* recursive sprop means non record with projections -> squashed *)
-    let sorts_opt =
-      if Environ.is_type_in_type env (GlobRef.IndRef ind) then None
-      else
+    check_occur fixenv 1 def
+  in
+  (* Do it on every fixpoint *)
+  let rv = Array.map2_i find_ind nvect bodies in
+  (Array.map fst rv, Array.map snd rv)
+
+(* Returns the pairs of (inductive sort * output sort) or None if Type in Type *)
+let sorts_of_mutfix env minds names =
+  let check_type_in_type (ind, _) = Environ.is_type_in_type env (GlobRef.IndRef ind) in
+  (* recursive sprop means non record with projections -> squashed *)
+  if Array.exists check_type_in_type minds then None
+  else
+    Some (Array.fold_left_i (fun i sorts (ind, inst) ->
         let _, mip = lookup_mind_specif env ind in
-        let sind = UVars.subst_instance_sort inst mip.mind_sort in
-        let u = Sorts.univ_of_sort sind in
+        let ind_sort = UVars.subst_instance_sort inst mip.mind_sort in
+        let u = Sorts.univ_of_sort ind_sort in
         (* This is an approximation: a [Relevant] variable might be of sort [Prop]
            or [Type]. As we only care about the quality, we have to be conservative
            here, i.e., every relevant sort (so, [Prop] or above) can be eliminated
            into any other relevant sort. *)
-        let bsort = match names.(i).Context.binder_relevance with
+        let out_sort = match names.(i).Context.binder_relevance with
           | Irrelevant -> Sorts.sprop
           | Relevant -> Sorts.prop
           | RelevanceVar q -> Sorts.qsort q u in
-        Some (sind, bsort)
-    in
-    ind, bs, sorts_opt
-  in
-  (* Do it on every fixpoint *)
-  let rv = Array.map2_i find_ind nvect bodies in
-  (Array.map (fun (minds, _, _) -> minds) rv,
-   Array.map (fun (_, rdef, _) -> rdef) rv,
-   Array.map (fun (_, _, sorts_opt) -> sorts_opt) rv)
+        (ind_sort, out_sort) :: sorts
+      ) [] minds)
 
 
 let check_fix_pre_sorts ?evars env ((nvect, _), (names, _, bodies as recdef) as fix) =
@@ -1700,38 +1701,35 @@ let check_fix_pre_sorts ?evars env ((nvect, _), (names, _, bodies as recdef) as 
    the possibly new constraints (see e.g. [esearch_guard] (Pretyping)). We expose this
    function to be used for this purpose, while check_fix performs the normal check,
    failing when elimination constraints are not satisfied. *)
-  let (minds, rdef, sorts_opt) = inductive_of_mutfix ?evars env fix in
+  let minds, rdef = inductive_of_mutfix ?evars env fix in
+  let sorts_opt = sorts_of_mutfix env minds names in
+  let inds = Array.map fst minds in
   let flags = Environ.typing_flags env in
   let raise_err = raise_fix_guard_err_fn env recdef names in
-  if flags.check_guarded then
-    let get_tree (kn,i) =
-      let mib = Environ.lookup_mind kn env in
-      mib.mind_packets.(i).mind_recargs
-    in
-    let trees = Array.map get_tree minds in
-    let () =
+  let () =
+    if flags.check_guarded then
+      let get_tree (kn,i) =
+        let mib = Environ.lookup_mind kn env in
+        mib.mind_packets.(i).mind_recargs
+      in
+      let trees = Array.map get_tree inds in
       for i = 0 to Array.length bodies - 1 do
         let (fenv, body) = rdef.(i) in
         let renv = make_renv fenv nvect.(i) trees.(i) in
         try check_one_fix cache ?evars renv nvect trees body
         with FixGuardError (err_env, err) -> raise_err err_env i err
       done
-    in
-    sorts_opt
-  else
-    sorts_opt
+  in
+  sorts_opt
 
 let check_fix ?evars env (_, (names, _, _ as recdef) as fix) =
   let sorts_opts = check_fix_pre_sorts ?evars env fix in
   let raise_err = raise_fix_guard_err_fn env recdef names in
   let elim_to = eliminates_to (Environ.qualities env) in
-  Array.iteri (fun i sort_opt ->
-      match sort_opt with
-      | None -> ()
-      | Some (ind_sort, binder_sort) ->
-        if not (is_allowed_fixpoint elim_to ind_sort binder_sort) then
-          raise_err env i @@ FixpointOnNonEliminable (ind_sort, binder_sort)
-    ) sorts_opts
+  Option.iter (List.iteri (fun i (ind_sort, out_sort) ->
+      if not (is_allowed_fixpoint elim_to ind_sort out_sort) then
+        raise_err env i @@ FixpointOnNonEliminable (ind_sort, out_sort)
+    )) sorts_opts
 
 (************************************************************************)
 (* Co-fixpoints. *)

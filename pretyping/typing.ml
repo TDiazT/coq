@@ -330,18 +330,14 @@ let judge_of_cast env sigma cj k tj =
 
 let check_fix_with_elims env sigma fix =
   let evars = Evd.evar_handler sigma in
-  let sorts_opts = check_fix_pre_sorts ~evars env fix in
-  Array.fold_left_i
-    (fun i sigma sort_opt ->
-       match sort_opt with
-       | None -> sigma
-       | Some (ind_sort, binder_sort) ->
-        let elim_to = Inductive.eliminates_to @@ Evd.elim_graph sigma in
-         if not (is_allowed_fixpoint elim_to ind_sort binder_sort) then
-           Evd.set_elim_to sigma (Sorts.quality ind_sort) (Sorts.quality binder_sort)
-         else
-           sigma
-    ) sigma sorts_opts
+  let sorts_opt = check_fix_pre_sorts ~evars env fix in
+  Option.fold_left (List.fold_left (fun sigma (ind_sort, out_sort) ->
+      let elim_to = Inductive.eliminates_to @@ Evd.elim_graph sigma in
+      if not (is_allowed_fixpoint elim_to ind_sort out_sort) then
+        Evd.set_elim_to sigma (Sorts.quality ind_sort) (Sorts.quality out_sort)
+      else
+        sigma
+    )) sigma sorts_opt
 
 let check_fix env sigma pfix =
   let inj c = Unsafe.to_constr c in
