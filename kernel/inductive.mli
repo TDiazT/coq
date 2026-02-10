@@ -193,9 +193,10 @@ val check_case_info : env -> pinductive -> case_info -> unit
     in these containers. *)
 val is_primitive_positive_container : env -> Constant.t -> bool
 
-val check_fix_pre_sorts : ?evars:evar_handler -> env -> fixpoint -> (Sorts.t * Sorts.t) option array
+val check_fix_pre_sorts : ?evars:evar_handler -> env -> fixpoint -> (Sorts.t * Sorts.t) list option
 (** Checks fixpoint without checking sort elimination constraints.
-   Returns an array of possible sorts (None if Type in Type) *)
+    Returns the list of each fixpoint's structural argument's sort and
+    output sort (None if Type in Type) *)
 
 val check_fix : ?evars:evar_handler -> env -> fixpoint -> unit
 (** Checks fixpoint, along with sort elimination constraints. *)
