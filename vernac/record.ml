@@ -567,14 +567,13 @@ let declare_proj_coercion_instance ~flags ref from =
 
 (* Collects elimination constraints from other projections that might be referenced
  * in the type of the current projection being built.
- * elim_cstrs_map keeps the mapping of (field name -> elim constraints) *)
+ * elim_cstrs_map keeps the mapping of (projection constant -> elim constraints) *)
 let collect_elim_cstrs elim_cstrs_map proj_type =
   let open Sorts in
   let rec aux_fold elim_cstrs c =
     match Constr.kind c with
     | Const (c, _) -> (
-        let label = Constant.label c in
-        match Id.Map.find_opt label elim_cstrs_map with
+        match Cmap_env.find_opt c elim_cstrs_map with
         | None -> elim_cstrs
         | Some c_elim_cstrs -> ElimConstraints.union elim_cstrs c_elim_cstrs)
     | _ -> Constr.fold aux_fold elim_cstrs c
@@ -583,10 +582,10 @@ let collect_elim_cstrs elim_cstrs_map proj_type =
 
 (* Checks whether the record's quality can be eliminated into the projection's
    quality. If not, then it adds the elimination constraint. *)
-let check_add_elimination_constraints ~primitive (entry, binders as univs) fld_id elim_cstrs_map record_quality proj_typ =
+let check_add_elimination_constraints ~primitive (entry, binders as univs) elim_cstrs_map record_quality proj_typ =
   (* When the record has primitive projections, then the constraints are added to the record itself,
    * not to the projections *)
-  if primitive then univs, elim_cstrs_map
+  if primitive then univs, None
   else
     let env = Global.env () in
     let evd = Evd.from_env env in
@@ -595,9 +594,9 @@ let check_add_elimination_constraints ~primitive (entry, binders as univs) fld_i
     let qgraph = Environ.qualities env in
     let qgraph = try add_quality record_quality qgraph with AlreadyDeclared -> qgraph in
     let qgraph = try add_quality proj_quality qgraph with AlreadyDeclared -> qgraph in
-    if eliminates_to qgraph record_quality proj_quality then univs, elim_cstrs_map
+    if eliminates_to qgraph record_quality proj_quality then univs, None
     else
-      let entry, elim_cstrs_map' = match entry with
+      let entry, new_field_elim_cstrs = match entry with
         | UState.Polymorphic_entry uctx ->
           let open Sorts in
           let new_elim_cstr = record_quality, ElimConstraint.ElimTo, proj_quality in
@@ -606,10 +605,10 @@ let check_add_elimination_constraints ~primitive (entry, binders as univs) fld_i
           let elim_cstrs' = ElimConstraints.add new_elim_cstr elim_cstrs in
           let elim_cstrs' = ElimConstraints.union related_elim_cstrs elim_cstrs' in
           let uctx' = UVars.UContext.make (UVars.UContext.names uctx) (UVars.UContext.instance uctx, (elim_cstrs', univ_cstrs)) in
-          UState.Polymorphic_entry uctx', Id.Map.add fld_id elim_cstrs' elim_cstrs_map
-        | _ -> entry, elim_cstrs_map
+          UState.Polymorphic_entry uctx', Some elim_cstrs'
+        | _ -> entry, None
       in
-      (entry, binders), elim_cstrs_map'
+      (entry, binders), new_field_elim_cstrs
 
 (* TODO: refactor the declaration part here; this requires some
    surgery as Evarutil.finalize is called too early in the path *)
@@ -641,12 +640,12 @@ let build_named_proj ~primitive ~flags ~univs ~uinstance ~kind env paramdecls
   in
   let proj = it_mkLambda_or_LetIn (mkLambda (x, rp, body)) paramdecls in
   let proj_typ = it_mkProd_or_LetIn (mkProd (x, rp, ccl)) paramdecls in
-  let univs, elim_cstrs_map =
+  let univs, new_field_elim_cstrs =
     match decl with
     (* A local def might need previous elim constraints but it doesn't introduce new ones *)
-    | LocalDef _ -> univs, elim_cstrs_map
+    | LocalDef _ -> univs, None
     | LocalAssum _ ->
-        check_add_elimination_constraints ~primitive univs fid elim_cstrs_map
+        check_add_elimination_constraints ~primitive univs elim_cstrs_map
           record_quality proj_typ
   in
   let entry = Declare.definition_entry ~univs ~types:proj_typ proj in
@@ -657,6 +656,10 @@ let build_named_proj ~primitive ~flags ~univs ~uinstance ~kind env paramdecls
     with Type_errors.TypeError (ctx,te) as exn when not primitive ->
       let _, info = Exninfo.capture exn in
       Exninfo.iraise (NotDefinable (BadTypedProj (fid,ctx,te)),info)
+  in
+  let elim_cstrs_map = match new_field_elim_cstrs with
+    | None -> elim_cstrs_map
+    | Some elim_cstrs -> Cmap_env.add kn elim_cstrs elim_cstrs_map
   in
   Declare.definition_message fid;
   let term = match p_opt with
@@ -717,7 +720,7 @@ let declare_projections indsp ~kind ~inhabitant_id flags ?fieldlocs fieldimpls =
     | Polymorphic auctx -> UState.Polymorphic_entry (UVars.AbstractContext.repr auctx)
   in
   let univs = univs, UnivNames.empty_binders in
-  let elim_cstrs_map : Sorts.ElimConstraints.t Id.Map.t = Id.Map.empty in
+  let elim_cstrs_map = Cmap_env.empty in
   let record_quality = Sorts.quality mip.mind_sort in
   let fields, _ = mip.mind_nf_lc.(0) in
   let fields = List.firstn mip.mind_consnrealdecls.(0) fields in
