@@ -3,6 +3,7 @@ Unset Collapse Sorts ToType.
 Set Printing Universes.
 Set Printing Sort Qualities.
 Set Printing All.
+Set Warnings "-native-compiler-disabled".
 
 Module Reduction.
 
