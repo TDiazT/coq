@@ -82,10 +82,10 @@ term200: [
 ]
 
 term100: [
-| term100 "<:" term200
-| term100 "<<:" term200
-| term100 ":>" term200
-| term100 ":" term200
+| term99 "<:" term200
+| term99 "<<:" term200
+| term99 ":>" term200
+| term99 ":" term200
 | term99
 ]
 
@@ -161,9 +161,7 @@ binder_constr: [
 | "let" "fix" fix_decl "in" term200
 | "let" "cofix" cofix_body "in" term200
 | "let" [ "(" LIST0 name SEP "," ")" | "()" ] as_return_type ":=" term200 "in" term200
-| "let" "'" pattern200 ":=" term200 "in" term200
-| "let" "'" pattern200 ":=" term200 case_type "in" term200
-| "let" "'" pattern200 "in" pattern200 ":=" term200 case_type "in" term200
+| "let" "'" pattern200 OPT [ "in" pattern200 ] ":=" term200 OPT case_type "in" term200
 | "if" term200 as_return_type "then" term200 "else" term200
 | "fix" fix_decls
 | "cofix" cofix_decls
@@ -268,7 +266,7 @@ pattern200: [
 ]
 
 pattern100: [
-| pattern100 ":" term200
+| pattern99 ":" term200
 | pattern99
 ]
 
@@ -905,6 +903,7 @@ gallina: [
 | "Let" "Fixpoint" LIST1 fix_definition SEP "with"
 | "CoFixpoint" LIST1 cofix_definition SEP "with"
 | "Let" "CoFixpoint" LIST1 cofix_definition SEP "with"
+| "Scheme" "All" "for" smart_global OPT [ "over" LIST1 ident SEP "," ]
 | "Scheme" LIST1 scheme SEP "with"
 | "Scheme" "Equality" "for" smart_global
 | "Scheme" "Boolean" "Equality" "for" smart_global
@@ -1304,8 +1303,8 @@ ssexpr35: [
 ]
 
 ssexpr50: [
-| ssexpr50 "-" ssexpr0
-| ssexpr50 "+" ssexpr0
+| ssexpr0 "-" ssexpr0
+| ssexpr0 "+" ssexpr0
 | ssexpr0
 ]
 
@@ -2203,9 +2202,9 @@ ltac_expr3: [
 ]
 
 ltac_expr2: [
-| ltac_expr2 "+" ltac_expr2
+| ltac_expr1l "+" ltac_expr2
 | "tryif" ltac_expr5 "then" ltac_expr5 "else" ltac_expr2
-| ltac_expr2 "||" ltac_expr2
+| ltac_expr1l "||" ltac_expr2
 | ltac_expr1l
 ]
 
@@ -2409,6 +2408,8 @@ rewstrategy1: [
 | "terms" LIST0 constr
 | "eval" red_expr
 | "fold" constr
+| "matches" constr
+| "tactic" tactic
 | rewstrategy0
 ]
 
@@ -2701,7 +2702,7 @@ tac2pat3: [
 ]
 
 tac2pat2: [
-| tac2pat2 "::" tac2pat2      (* ltac2 plugin *)
+| tac2pat1 "::" tac2pat2      (* ltac2 plugin *)
 | tac2pat1      (* ltac2 plugin *)
 ]
 
@@ -2730,7 +2731,7 @@ atomic_tac2pat: [
 ]
 
 ltac2_expr6: [
-| ltac2_expr6 ";" ltac2_expr6      (* ltac2 plugin *)
+| ltac2_expr5 ";" ltac2_expr6      (* ltac2 plugin *)
 | ltac2_expr5      (* ltac2 plugin *)
 ]
 
@@ -2747,12 +2748,12 @@ ltac2_expr4: [
 ]
 
 ltac2_expr3: [
-| ltac2_expr3 "," LIST1 ltac2_expr2 SEP ","      (* ltac2 plugin *)
+| ltac2_expr2 "," LIST1 ltac2_expr2 SEP ","      (* ltac2 plugin *)
 | ltac2_expr2      (* ltac2 plugin *)
 ]
 
 ltac2_expr2: [
-| ltac2_expr2 "::" ltac2_expr2      (* ltac2 plugin *)
+| ltac2_expr1 "::" ltac2_expr2      (* ltac2 plugin *)
 | ltac2_expr1      (* ltac2 plugin *)
 ]
 
@@ -2843,12 +2844,12 @@ let_binder: [
 ]
 
 ltac2_type5: [
-| ltac2_type5 "->" ltac2_type5      (* ltac2 plugin *)
+| ltac2_type2 "->" ltac2_type5      (* ltac2 plugin *)
 | ltac2_type2      (* ltac2 plugin *)
 ]
 
 ltac2_type2: [
-| ltac2_type2 "*" LIST1 ltac2_type1 SEP "*"      (* ltac2 plugin *)
+| ltac2_type1 "*" LIST1 ltac2_type1 SEP "*"      (* ltac2 plugin *)
 | ltac2_type1      (* ltac2 plugin *)
 ]
 

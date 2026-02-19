@@ -134,6 +134,8 @@ non-:math:`\SProp` sorts (through record η-extensionality).
    Goal forall (A : SProp) (r : rBox A), r = {| runbox := r.(runbox A) |}.
    Proof. intros A r. Fail reflexivity. Abort.
 
+.. _record-eta-restriction:
+
 In contrast, primitive records in relevant sorts with at least one relevant field
 are allowed and have η-conversion.
 
@@ -144,6 +146,36 @@ are allowed and have η-conversion.
    Goal forall (A : Type) (P : A -> SProp) (s : ssig A P),
                 s = {| spr1 := s.(spr1 A P); spr2 := s.(spr2 A P) |}.
    Proof. intros A P s. reflexivity. Qed.
+
+Sort polymorphic primitive records are allowed and η-conversion depends on
+the actual instantiation of sorts.
+
+.. rocqtop:: in
+
+    Set Universe Polymorphism.
+
+    Inductive eq@{s; u} (A : Type@{s;u}) (a : A) : A -> Prop :=
+      eq_refl : eq A a a.
+
+    Arguments eq {_}.
+    Arguments eq_refl {_ _}.
+
+   Record RSToS'@{s s'; u u'| s' -> s +} (A : Type@{s;u}): Type@{s';u'} := {
+     rsprj : A
+   }.
+
+   (* Conversion when record is in Type and field in SProp fails correctly *)
+   Goal forall (A:SProp) (rs : RSToS'@{SProp Type; 0 0} A),
+                  eq rs {| rsprj := rs.(rsprj A) |}.
+   Proof. intros A rs. Fail reflexivity. Abort.
+
+   (* Conversion when record and field are instantiated to SProp checks correctly *)
+   Goal forall (A:SProp) (rs : RSToS'@{SProp SProp; 0 0} A),
+                  eq rs {| rsprj := rs.(rsprj A) |}.
+   Proof. intros A rs. reflexivity. Qed.
+
+   Unset Universe Polymorphism.
+
 
 Encodings for strict propositions
 ---------------------------------
@@ -189,7 +221,7 @@ Definitional UIP
 Definitional UIP involves a special reduction rule through which
 reduction depends on conversion. Consider the following code:
 
-.. rocqtop:: in
+.. rocqtop:: reset in
 
    Set Definitional UIP.
 
@@ -221,25 +253,30 @@ Non Termination with UIP
 ++++++++++++++++++++++++
 
 The special reduction rule of UIP combined with an impredicative sort
+(including `SProp`)
 breaks termination of reduction
 :cite:`abel19:failur_normal_impred_type_theor`:
 
 .. rocqtop:: all
 
-   Axiom all_eq : forall (P Q:Prop), P -> Q -> seq P Q.
+   Axiom all_eq : forall (P Q:Set), seq P Q.
 
-   Definition transport (P Q:Prop) (x:P) (y:Q) : Q
-   := match all_eq P Q x y with srefl _ => x end.
+   Definition transport (P Q:Set) (x:P) : Q
+     := match all_eq P Q with srefl _ => x end.
 
-   Definition top : Prop := forall P : Prop, P -> P.
+   Record Box (A:SProp) : Set := box { unbox : A }.
+   Arguments box {_}. Arguments unbox {_}.
 
-   Definition c : top :=
-     fun P p =>
-     transport
-     (top -> top)
-     P
-     (fun x : top => x (top -> top) (fun x => x) x)
-     p.
+   Definition transportS (P Q : SProp) (x:P) : Q
+     := unbox (transport (Box P) (Box Q) (box x)).
+
+   Definition top : SProp := forall P : SProp, P -> P.
+
+   Definition c : top := fun P p =>
+     transportS
+       (top -> top)
+       P
+       (fun x : top => x (top -> top) (fun x => x) x).
 
    Fail Timeout 1 Eval lazy in c (top -> top) (fun x => x) c.
 

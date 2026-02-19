@@ -136,7 +136,8 @@ module type S = sig
   val generalize_symbol : ('a, 'tr, 'c) Symbol.t -> ('b, norec, 'c) Symbol.t option
 
   (* Used in custom entries, should tweak? *)
-  val level_of_nonterm : ('a, norec, 'c) Symbol.t -> string option
+  (** If the symbol is [nterml] returns the level, otherwise [None] *)
+  val level_of_nonterm : _ Symbol.t -> string option
 
 end
 
@@ -165,9 +166,11 @@ module type ExtS = sig
      and type 'a with_estate := EState.t -> 'a
      and type 'a mod_estate := EState.t -> EState.t * 'a
 
+  val safe_extend : EState.t -> 'a Entry.t -> 'a extend_statement -> EState.t
+
   type 's add_kw = { add_kw : 'c. 's -> 'c pattern -> 's }
 
-  val safe_extend : 's add_kw -> EState.t -> 's -> 'a Entry.t -> 'a extend_statement -> EState.t * 's
+  val add_extend_kws : 's add_kw -> 's -> _ extend_statement -> 's
 
   module Unsafe : sig
     val existing_entry : EState.t -> 'a Entry.t -> EState.t

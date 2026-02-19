@@ -21,7 +21,6 @@ module ElimTable = struct
 
   let eliminates_to q q' =
     match q, q' with
-    | QConstant QType, _ -> true
     | QConstant q, QConstant q' -> const_eliminates_to q q'
     | QVar q, QVar q' -> QVar.equal q q'
     | (QConstant _ | QVar _), _ -> false
@@ -39,6 +38,13 @@ module G = AcyclicGraph.Make(struct
 
     let anomaly_err q = Pp.(str "Quality " ++ Quality.raw_pr q ++ str " undefined.")
   end)
+(** We only use G to track connected components of the eliminability relation.
+    In particular, G |= q1 = q2 does not mean that they are equal, but just
+    equi-eliminable. As a result, one should not use the check_eq / enforce_eq
+    functions in the remainder of this module.
+
+    Note that we also abuse the Lt relation to get some rigidity for free for
+    the built-in sorts, but this is a hack that should go away at some point. *)
 
 module RigidPaths = struct
   type t = (Quality.t list) Quality.Map.t
@@ -82,10 +88,12 @@ module QSet = QVar.Set
 
 type t =
   { graph: G.t;
+    (** Connected components of the eliminability graph *)
     rigid_paths: RigidPaths.t;
     ground_and_global_sorts: Quality.Set.t;
     dominant: Quality.t QMap.t;
     delayed_check: QSet.t QMap.t;
+    ignore_constraints: bool;
   }
 
 type path_explanation = G.explanation Lazy.t
@@ -104,18 +112,7 @@ type quality_inconsistency =
 let to_graph_cstr k =
   let open ElimConstraint in
   match k with
-    | ElimTo -> AcyclicGraph.Le
-    | Equal -> AcyclicGraph.Eq
-
-let check_func k =
-  match k with
-  | ElimConstraint.ElimTo -> G.check_leq
-  | ElimConstraint.Equal -> G.check_eq
-
-let enforce_func k =
-  match k with
-  | ElimConstraint.ElimTo -> G.enforce_leq
-  | ElimConstraint.Equal -> G.enforce_eq
+  | ElimTo -> AcyclicGraph.Le
 
 type elimination_error =
   | IllegalConstraintFromSProp of Quality.t
@@ -125,6 +122,9 @@ type elimination_error =
   | QualityInconsistency of quality_inconsistency
 
 exception EliminationError of elimination_error
+
+let set_ignore_constraints b g = {g with ignore_constraints=b}
+let ignore_constraints g = g.ignore_constraints
 
 let non_refl_pairs l =
   let fold x =
@@ -145,8 +145,8 @@ let set_dominant g qv q =
 (* Set the dominant sort of qv to the minimum between q1 and q2 if they are related.
    [q1] is the dominant of qv in [g]. *)
 let update_dominant_if_related g qv q1 q2 =
-  if check_func ElimConstraint.ElimTo g.graph q1 q2 then Some (set_dominant g qv q2)
-  else if check_func ElimConstraint.ElimTo g.graph q2 q1 then Some g
+  if G.check_leq g.graph q1 q2 then Some (set_dominant g qv q2)
+  else if G.check_leq g.graph q2 q1 then Some g
   else None
 
 (* If [qv] is not dominated, set dominance to [q].
@@ -158,21 +158,42 @@ let rec update_dominance g q qv =
     | Some q' -> update_dominant_if_related g qv q' q in
   match QMap.find_opt qv g.delayed_check with
   | None -> g'
-  | Some qs ->
-     let g' = QSet.fold (fun v g -> Option.bind g (fun g -> update_dominance g q v)) qs g' in
-     match g' with
-     | Some graph -> Some { graph with delayed_check = QMap.set qv QSet.empty g.delayed_check }
-     | None -> None
+  | Some delayed_qs ->
+    (* When two sort variables are `set` to each other, e.g. uState, (q1 <-> q2), without being
+       dominated, then both delay the domination check of each other:
+       delayed_check[q1] = {q2}
+       delayed_check[q2] = {q1}
+
+       When one of them becomes dominated, e.g. q1 dominated by Type, then we need to clear up
+       any occurrence of it in the delayed check of the other, e.g. remove q1 from delayed_check[q2].
+       Otherwise, we end up in a loop. *)
+    let remove_qv_from_delayed delayed_q delayed_check =
+      match QMap.find_opt delayed_q delayed_check with
+      | None -> delayed_check
+      | Some dqs ->
+        QMap.set delayed_q (QSet.remove qv dqs) delayed_check
+    in
+    let clearup_cyclic_delay graph =
+      QSet.fold (fun delayed_q acc_graph ->
+        { acc_graph with delayed_check = remove_qv_from_delayed delayed_q acc_graph.delayed_check })
+        delayed_qs graph
+    in
+    let g' = Option.map clearup_cyclic_delay g' in
+    let g' = QSet.fold (fun v g -> Option.bind g (fun g -> update_dominance g q v)) delayed_qs g' in
+    match g' with
+    | Some graph -> Some { graph with delayed_check = QMap.set qv QSet.empty g.delayed_check }
+    | None -> None
 
 let update_dominance_if_valid g (q1,k,q2) =
   match k with
-  | ElimConstraint.Equal -> Some g
   | ElimConstraint.ElimTo ->
      (* if the constraint is s ~> g, dominants are not modified. *)
      if Quality.is_qconst q2 then Some g
      else
        match q1, q2 with
        | (Quality.QConstant _ | Quality.QVar _), Quality.QConstant _ -> assert false
+       | Quality.QVar qv1, Quality.QVar qv2 when QVar.equal qv1 qv2 -> assert false
+        (* It makes no sense to update or delay the dominance of a sort variable when it eliminates to itself *)
        | Quality.QVar qv1, Quality.QVar qv2 ->
           (* 3 cases:
              - if [qv1] is a global, treat as constants.
@@ -183,7 +204,7 @@ let update_dominance_if_valid g (q1,k,q2) =
             (match QMap.find_opt qv1 g.dominant with
             | None ->
                let add_delayed qs =
-                 Some { g with delayed_check = QMap.set qv1 (QSet.add qv2 qs) g.delayed_check }
+                 Some { g with delayed_check = QMap.add qv1 (QSet.add qv2 qs) g.delayed_check }
                in
                (match QMap.find_opt qv1 g.delayed_check with
                | None -> add_delayed QSet.empty
@@ -219,18 +240,29 @@ let add_rigid_path q1 q2 g =
   | QConstant qc1, QConstant qc2 -> raise (EliminationError (IllegalConstantConstraint (qc1, qc2)))
   | _, _ -> { g with rigid_paths = RigidPaths.add_elim_to q1 q2 g.rigid_paths }
 
+let enforce_func k q1 q2 g = match k with
+| ElimConstraint.ElimTo ->
+  begin match G.enforce_leq q1 q2 g.graph with
+  | None -> None
+  | Some graph -> Some { g with graph }
+  end
+
 let enforce_constraint (q1, k, q2) g =
-  match enforce_func k q1 q2 g.graph with
+  match enforce_func k q1 q2 g with
   | None ->
+     if ignore_constraints g then g else
      let e = lazy (G.get_explanation (q1,to_graph_cstr k,q2) g.graph) in
      raise @@ EliminationError (QualityInconsistency (None, (k, q1, q2, Some (Path e))))
   | Some graph ->
-    let g = { g with graph } in
-    dominance_check g (q1, k, q2)
+    if Quality.equal q1 q2 then graph
+    else dominance_check graph (q1, k, q2)
 
 let merge_constraints csts g = ElimConstraints.fold enforce_constraint csts g
 
-let check_constraint g (q1, k, q2) = check_func k g.graph q1 q2
+let check_constraint g (q1, k, q2) =
+  ignore_constraints g ||
+  match k with
+  | ElimConstraint.ElimTo -> G.check_leq g.graph q1 q2
 
 let check_constraints csts g = ElimConstraints.for_all (check_constraint g) csts
 
@@ -238,24 +270,14 @@ exception AlreadyDeclared = G.AlreadyDeclared
 
 let add_quality q g =
   let graph = G.add q g.graph in
-  let g = enforce_constraint (Quality.qtype, ElimConstraint.ElimTo, q) { g with graph } in
-  let (paths,ground_and_global_sorts) =
+  let ground_and_global_sorts =
     if Quality.is_qglobal q
-    then (RigidPaths.add_elim_to Quality.qtype q g.rigid_paths, Quality.Set.add q g.ground_and_global_sorts)
-    else (g.rigid_paths,g.ground_and_global_sorts) in
-  (* As Type ~> s, set Type to be the dominant sort of q if q is a variable. *)
-  let dominant = match q with
-    | Quality.QVar qv -> QMap.add qv Quality.qtype g.dominant
-    | Quality.QConstant _ -> g.dominant in
-  { g with rigid_paths = paths; ground_and_global_sorts; dominant }
+    then Quality.Set.add q g.ground_and_global_sorts
+    else g.ground_and_global_sorts in
+  { g with graph; ground_and_global_sorts }
 
 let enforce_eliminates_to s1 s2 g =
   enforce_constraint (s1, ElimConstraint.ElimTo, s2) g
-
-let enforce_eq s1 s2 g =
-  let g = enforce_constraint (s1, ElimConstraint.Equal, s2) g in
-  let () = check_rigid_paths g in (* ??? *)
-  g
 
 let initial_graph =
   let g = G.empty in
@@ -273,22 +295,18 @@ let initial_graph =
     rigid_paths = p;
     ground_and_global_sorts = Quality.Set.of_list Quality.all_constants;
     dominant = QMap.empty;
-    delayed_check = QMap.empty; }
+    delayed_check = QMap.empty;
+    ignore_constraints = false }
 
 let eliminates_to g q q' =
-  check_func ElimConstraint.ElimTo g.graph q q'
+  ignore_constraints g ||
+  G.check_leq g.graph q q'
 
 let update_rigids g g' =
   { g' with rigid_paths = g.rigid_paths }
 
 let sort_eliminates_to g s1 s2 =
   eliminates_to g (quality s1) (quality s2)
-
-let check_eq g q1 q2 =
-  Sorts.Quality.equal q1 q2 ||
-    G.check_eq g.graph q1 q2
-
-let check_eq_sort g s s' = check_eq g (quality s) (quality s')
 
 let eliminates_to_prop g q = eliminates_to g q Quality.qprop
 
@@ -299,15 +317,17 @@ let qvar_domain g =
     (fun q acc -> match q with Quality.QVar q -> QVar.Set.add q acc | _ -> acc)
     (domain g) QVar.Set.empty
 
+(* XXX the function below does not handle equivalence classes, but it's only used for printing *)
 let merge g g' =
   let qs = domain g' in
   let g = Quality.Set.fold
              (fun q acc -> try add_quality q acc with _ -> acc) qs g in
   Quality.Set.fold
     (fun q -> Quality.Set.fold
-             (fun q' acc -> if eliminates_to g' q q'
-                         then enforce_eliminates_to q q' acc
-                         else acc) qs) qs g
+      (fun q' acc -> if Quality.equal q q' then acc
+        else if eliminates_to g' q q'
+        then enforce_eliminates_to q q' acc
+        else acc) qs) qs g
 
 let is_empty g = QVar.Set.is_empty (qvar_domain g)
 

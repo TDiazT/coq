@@ -16,7 +16,7 @@ type t
 
 val set_type_in_type : bool -> t -> t
 
-(** When [type_in_type], functions adding constraints do not fail and
+(** When [type_in_type], functions adding level constraints do not fail and
    may instead ignore inconsistent constraints.
 
     Checking functions such as [check_leq] always return [true].
@@ -36,7 +36,7 @@ val initial_universes : t
 val initial_universes_with : t -> t
 
 (** Check equality of instances w.r.t. a universe graph *)
-val check_eq_instances : QGraph.t -> t -> Instance.t -> Instance.t -> bool
+val check_eq_instances : (Sorts.Quality.t -> Sorts.Quality.t -> bool) -> t -> Instance.t -> Instance.t -> bool
 
 (** {6 ... } *)
 (** Merge of constraints in a universes graph.
@@ -62,15 +62,13 @@ val merge_constraints : UnivConstraints.t -> t -> t
 val check_constraint  : t -> UnivConstraint.t -> bool
 val check_constraints : UnivConstraints.t -> t -> bool
 
-val check_eq_sort : QGraph.t -> t -> Sorts.t -> Sorts.t -> bool
+val check_eq_sort : (Sorts.Quality.t -> Sorts.Quality.t -> bool) -> t -> Sorts.t -> Sorts.t -> bool
 (** Checks whether (i) the first quality is equal to the second and (ii)
-    that the universe of the first one is equal to the universe of the second one.
-    When [type_in_type], only checks relevance. *)
+    that the universe of the first one is equal to the universe of the second one. *)
 
-val check_leq_sort : QGraph.t -> t -> Sorts.t -> Sorts.t -> bool
+val check_leq_sort : (Sorts.Quality.t -> Sorts.Quality.t -> bool) -> t -> Sorts.t -> Sorts.t -> bool
 (** Checks whether (i) the second quality eliminates into the first and (ii)
-    that the universe of the first one is below the universe of the second one.
-    When [type_in_type], only checks relevance. *)
+    that the universe of the first one is below the universe of the second one. *)
 
 val enforce_leq_alg : Univ.Universe.t -> Univ.Universe.t -> t -> Univ.UnivConstraints.t * t
 

@@ -49,6 +49,7 @@ type assoc =
 | LeftA
 | RightA
 | NonA
+| BothA
 
 type gram_symbol =
 | GSymbString of string
@@ -139,7 +140,7 @@ type argument_ext = {
   argext_name : string;
   argext_rules : tactic_rule list;
   argext_type : argument_type option;
-  argext_interp : (string option * code) option;
+  argext_interp : code option;
   argext_glob : code option;
   argext_subst : code option;
   argext_rprinter : code option;

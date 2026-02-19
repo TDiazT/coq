@@ -8,7 +8,6 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-open Genarg
 open Names
 open Libnames
 open Nametab
@@ -114,7 +113,7 @@ val interp_notation : ltac_notation -> notation_data
 val push_ltac : visibility -> full_path -> tacref -> unit
 val locate_ltac : qualid -> tacref
 val locate_extended_all_ltac : qualid -> tacref list
-val shortest_qualid_of_ltac : ?loc:Loc.t -> Id.Set.t -> tacref -> qualid
+val shortest_qualid_of_ltac : ?loc:Loc.t -> ?force_short:bool -> Id.Set.t -> tacref -> qualid
 val path_of_ltac : tacref -> full_path
 
 val push_constructor : ?user_warns:UserWarn.t -> visibility -> full_path -> ltac_constructor -> unit
@@ -181,10 +180,10 @@ val ltac1_prefix : ModPath.t
 
 (** {5 Generic arguments} *)
 
-val wit_ltac2_constr : (raw_tacexpr, Id.Set.t * glb_tacexpr, Util.Empty.t) genarg_type
+val wit_ltac2_constr : (raw_tacexpr, Id.Set.t * glb_tacexpr) GenConstr.tag
 (** Ltac2 quotations in Gallina terms *)
 
-val wit_ltac2_tac : (raw_tacexpr, glb_tacexpr, unit) genarg_type
+val wit_ltac2_tac : (raw_tacexpr, glb_tacexpr) Gentactic.tag
 (** Ltac2 as a generic tactic depending on proof mode (eg as argument to Solve Obligations) *)
 
 type var_quotation_kind =
@@ -193,7 +192,7 @@ type var_quotation_kind =
   | PatternVar
   | HypVar
 
-val wit_ltac2_var_quotation : (lident option * lident, var_quotation_kind * Id.t, Util.Empty.t) genarg_type
+val wit_ltac2_var_quotation : (lident option * lident, var_quotation_kind * Id.t) GenConstr.tag
 (** Ltac2 quotations for variables "$x" or "$kind:foo" in Gallina terms.
     NB: "$x" means "$constr:x" *)
 

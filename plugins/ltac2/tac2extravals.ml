@@ -11,7 +11,6 @@
 open Util
 open Pp
 open Names
-open Genarg
 open Tac2ffi
 open Tac2env
 open Tac2expr
@@ -34,8 +33,8 @@ let gtypref kn = GTypRef (Other kn, [])
 
 let of_glob_constr (c:Glob_term.glob_constr) =
   match DAst.get c with
-  | GGenarg (GenArg (Glbwit tag, v)) ->
-    begin match genarg_type_eq tag wit_ltac2_var_quotation with
+  | GGenarg (Glb (tag, v)) ->
+    begin match GenConstr.eq tag wit_ltac2_var_quotation with
     | Some Refl ->
       begin match (fst v) with
       | ConstrVar -> GlbTacexpr (GTacVar (snd v))
@@ -225,6 +224,36 @@ let () =
   } in
   define_ml_object Tac2quote.wit_reference obj
 
+let () =
+  let intern ist qid =
+    let m =
+      try Nametab.Modules.locate qid
+      with Not_found ->
+      try Nametab.ModTypes.locate qid
+      with Not_found ->
+      match Nametab.OpenMods.locate qid with
+      | DirOpenModule m | DirOpenModtype m -> m
+      | DirOpenSection _ ->
+        CErrors.user_err ?loc:qid.loc Pp.(Libnames.pr_qualid qid ++ str " is a section, expected a module.")
+      | exception Not_found ->
+        CErrors.user_err ?loc:qid.loc Pp.(str "Unknown module " ++ Libnames.pr_qualid qid ++ str ".")
+    in
+    GlbVal m, gtypref t_module
+  in
+  let subst s c = Mod_subst.subst_mp s c in
+  let interp _ m = return (Tac2ffi.of_modpath m) in
+  (* XXX nametab based print? share code with tac2core if so *)
+  let print _ _ m = str "module:(" ++ ModPath.print m ++ str ")" in
+  let raw_print _ _ r = str "module:(" ++ Libnames.pr_qualid r ++ str ")" in
+  let obj = {
+    ml_intern = intern;
+    ml_subst = subst;
+    ml_interp = interp;
+    ml_print = print;
+    ml_raw_print = raw_print;
+  } in
+  define_ml_object Tac2quote.wit_module obj
+
 (** Ltac2 in terms *)
 
 let () =
@@ -324,10 +353,9 @@ let () =
   let interp _ist tac =
     (* XXX should we be doing something with the ist? *)
     let tac = Tac2interp.(interp empty_environment) tac in
-    Proofview.tclBIND tac (fun _ ->
-        Ftactic.return (Geninterp.Val.inject (Geninterp.val_tag (topwit Stdarg.wit_unit)) ()))
+    Proofview.tclIGNORE tac
   in
-  Geninterp.register_interp0 wit_ltac2_tac interp
+  Gentactic.register_interp wit_ltac2_tac interp
 
 let () =
   let interp env sigma ist (kind,id) =
@@ -361,7 +389,7 @@ let () =
         | HypVar -> str "hyp:"
       in
       str "$" ++ ppkind ++ Id.print id) in
-  Genprint.register_noval_print0 wit_ltac2_var_quotation pr_raw pr_glb
+  Genprint.register_constr_print wit_ltac2_var_quotation pr_raw pr_glb
 
 let () =
   let subs ntnvars globs (ids, tac as orig) =
@@ -405,7 +433,7 @@ let () =
     *)
     Genprint.PrinterBasic Pp.(fun _env _sigma -> ids ++ Tac2print.pr_glbexpr ~avoid:Id.Set.empty e)
   in
-  Genprint.register_noval_print0 wit_ltac2_constr pr_raw pr_glb
+  Genprint.register_constr_print wit_ltac2_constr pr_raw pr_glb
 
 let () =
   let pr_raw e = Genprint.PrinterBasic (fun _ _ ->
@@ -413,8 +441,7 @@ let () =
       Tac2print.pr_rawexpr_gen ~avoid:Id.Set.empty E5 e)
   in
   let pr_glb e = Genprint.PrinterBasic (fun _ _ -> Tac2print.pr_glbexpr ~avoid:Id.Set.empty e) in
-  let pr_top () = assert false in
-  Genprint.register_print0 wit_ltac2_tac pr_raw pr_glb pr_top
+  Gentactic.register_print wit_ltac2_tac pr_raw pr_glb
 
 (** Built-in notation entries *)
 
@@ -586,7 +613,7 @@ let warn_unqualified_delimiters =
   CWarnings.create_in w
     Pp.(fun (s,delims) ->
         let delims () = prlist_with_sep pr_comma Id.print @@ List.rev delims in
-        fmt "Delimiter arguments to %s must be qualified using \"delimiters\"@
+        fmt "Delimiter arguments to %s must be qualified using \"delimiters\"@\n\
 (e.g. \"%s(delimiters(%t))\")@ unless there is a unique delimiter argument." s s delims)
 
 let delimiters_qid = Libnames.qualid_of_string "delimiters"
@@ -707,6 +734,7 @@ let () = add_expr_syntax_class "assert" q_assert Tac2quote.of_assertion
 let () = add_expr_syntax_class "constr_matching" q_constr_matching Tac2quote.of_constr_matching
 let () = add_expr_syntax_class "goal_matching" q_goal_matching Tac2quote.of_goal_matching
 let () = add_expr_syntax_class "format" Procq.Prim.lstring Tac2quote.of_format
+let () = add_expr_syntax_class "module" Procq.Prim.qualid Tac2quote.of_module
 
 let () = add_generic_syntax_class "pattern" Procq.Constr.constr Tac2quote.wit_pattern
 

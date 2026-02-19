@@ -18,57 +18,19 @@ open Tactypes
 
 exception RewriteFailure of Environ.env * Evd.evar_map * Pretype_errors.pretype_error
 
-type unary_strategy =
-    Subterms | Subterm | Innermost | Outermost
-  | Bottomup | Topdown | Progress | Try | Any | Repeat
-
-type binary_strategy =
-  | Compose
-
-type nary_strategy = Choice
-
-type ('constr,'redexpr,'id) strategy_ast =
-  | StratId | StratFail | StratRefl
-  | StratUnary of unary_strategy * ('constr,'redexpr,'id) strategy_ast
-  | StratBinary of
-      binary_strategy * ('constr,'redexpr,'id) strategy_ast * ('constr,'redexpr,'id) strategy_ast
-  | StratNAry of nary_strategy * ('constr,'redexpr,'id) strategy_ast list
-  | StratConstr of 'constr * bool
-  | StratTerms of 'constr list
-  | StratHints of bool * string
-  | StratEval of 'redexpr
-  | StratFold of 'constr
-  | StratVar of 'id
-  | StratFix of 'id * ('constr,'redexpr,'id) strategy_ast
-
-type rewrite_proof =
-  | RewPrf of constr * constr
-  | RewCast of Constr.cast_kind
-
 type evars = evar_map * Evar.Set.t (* goal evars, constraint evars *)
 
-type rewrite_result_info = {
-  rew_car : constr;
-  rew_from : constr;
-  rew_to : constr;
-  rew_prf : rewrite_proof;
-  rew_evars : evars;
-}
+type rewrite_result_info =
+  { rew_rel: constr; rew_to : constr; rew_prf : constr }
 
 type rewrite_result =
 | Fail
 | Identity
 | Success of rewrite_result_info
 
+val subst_rewrite_result : Evd.evar_map -> (Id.t -> constr) -> rewrite_result -> rewrite_result
+
 type strategy
-
-val strategy_of_ast : (Glob_term.glob_constr * constr delayed_open, Redexpr.red_expr delayed_open, Id.t) strategy_ast -> strategy
-
-val map_strategy : ('a -> 'b) -> ('c -> 'd) -> ('e -> 'f) ->
-  ('a, 'c, 'e) strategy_ast -> ('b, 'd, 'f) strategy_ast
-
-val pr_strategy : ('a -> Pp.t) -> ('b -> Pp.t) -> ('c -> Pp.t) ->
-  ('a, 'b, 'c) strategy_ast -> Pp.t
 
 (** Entry point for user-level "rewrite_strat" *)
 val cl_rewrite_clause_strat : strategy -> Id.t option -> unit Proofview.tactic
@@ -94,15 +56,6 @@ val setoid_symmetry_in : Id.t -> unit Proofview.tactic
 val setoid_reflexivity : unit Proofview.tactic
 
 val setoid_transitivity : constr option -> unit Proofview.tactic
-
-
-val apply_strategy :
-  strategy ->
-  Environ.env ->
-  Names.Id.Set.t ->
-  constr ->
-  bool * constr ->
-  evars -> rewrite_result
 
 module Strategies :
 sig
@@ -137,6 +90,14 @@ sig
 
   val fold : Evd.econstr -> strategy
   val fold_glob : Glob_term.glob_constr -> strategy
+
+  val with_env : (Environ.env -> Evd.evar_map -> Evd.evar_map * strategy) -> strategy
+
+  val matches : Pattern.constr_pattern -> strategy
+
+  val ltac1_tactic_call : unit Proofview.tactic -> strategy
+
+  val tactic_call : (env:Environ.env -> carrier:constr -> lhs:constr -> rel:constr option -> rewrite_result Proofview.tactic) -> strategy
 end
 
 module Internal :

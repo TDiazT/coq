@@ -227,6 +227,22 @@ let to_inversion_kind v = match Value.to_int v with
 
 let inversion_kind = make_to_repr to_inversion_kind
 
+let to_rewrite_success v : Rewrite.rewrite_result_info = match Value.to_tuple v with
+| [| rel; rhs; prf |] ->
+   { rew_rel = Value.to_constr rel;
+     rew_to = Value.to_constr rhs;
+     rew_prf = Value.to_constr prf }
+| _ -> assert false
+
+let to_rewrite_result v : Rewrite.rewrite_result = match v with
+| ValBlk (0, [| s |]) ->  Success (to_rewrite_success s)
+| ValInt 0 -> Identity
+| ValInt 1 -> Fail
+| _ -> assert false
+
+let rewrite_result = make_to_repr to_rewrite_result
+
+
 let to_move_location = function
 | ValInt 0 -> Logic.MoveFirst
 | ValInt 1 -> Logic.MoveLast
@@ -541,6 +557,15 @@ let () =
     (reduction @-> ret rewstrategy)
     Rewrite.Strategies.reduce
 
+let () =
+  define "rewstrat_matches"
+    (pattern @-> ret rewstrategy)
+    Rewrite.Strategies.matches
+
+let () =
+  define "rewstrat_tactic"
+    (fun3 constr constr (option constr) rewrite_result @-> ret rewstrategy)
+    Tac2tactics.wrap_tactic_call
 
 let () =
   define "tac_inversion"
@@ -711,15 +736,93 @@ let () =
 (** Tactics for [Ltac2/TransparentState.v]. *)
 
 let () =
-  define "current_transparent_state"
-    (unit @-> tac transparent_state)
-    Tac2tactics.current_transparent_state
+  define "empty_transparent_state" (ret transparent_state) TransparentState.empty
 
 let () =
   define "full_transparent_state" (ret transparent_state) TransparentState.full
 
 let () =
-  define "empty_transparent_state" (ret transparent_state) TransparentState.empty
+  define "current_transparent_state"
+    (unit @-> tac transparent_state)
+    Tac2tactics.current_transparent_state
+
+let () =
+  define "union_transparent_state"
+    (transparent_state @-> transparent_state @-> ret transparent_state) @@ fun ts1 ts2 ->
+    { tr_var = Id.Pred.union ts1.tr_var ts2.tr_var ;
+      tr_cst = Cpred.union ts1.tr_cst ts2.tr_cst ;
+      tr_prj = PRpred.union ts1.tr_prj ts2.tr_prj }
+
+let () =
+  define "inter_transparent_state"
+    (transparent_state @-> transparent_state @-> ret transparent_state) @@ fun ts1 ts2 ->
+    { tr_var = Id.Pred.inter ts1.tr_var ts2.tr_var ;
+      tr_cst = Cpred.inter ts1.tr_cst ts2.tr_cst ;
+      tr_prj = PRpred.inter ts1.tr_prj ts2.tr_prj }
+
+let () =
+  define "diff_transparent_state"
+    (transparent_state @-> transparent_state @-> ret transparent_state) @@ fun ts1 ts2 ->
+    { tr_var = Id.Pred.diff ts1.tr_var ts2.tr_var ;
+      tr_cst = Cpred.diff ts1.tr_cst ts2.tr_cst ;
+      tr_prj = PRpred.diff ts1.tr_prj ts2.tr_prj }
+
+let () =
+  define "add_constant_transparent_state"
+    (constant @-> transparent_state @-> ret transparent_state) @@ fun c ts ->
+    { tr_var = ts.tr_var ;
+      tr_cst = Cpred.add c ts.tr_cst ;
+      tr_prj = ts.tr_prj }
+
+let () =
+  define "add_proj_transparent_state"
+    (projection @-> transparent_state @-> ret transparent_state) @@ fun p ts ->
+    { tr_var = ts.tr_var ;
+      tr_cst = ts.tr_cst ;
+      tr_prj = PRpred.add (Projection.repr p) ts.tr_prj }
+
+let () =
+  define "add_var_transparent_state"
+    (ident @-> transparent_state @-> ret transparent_state) @@ fun v ts ->
+    { tr_var = Id.Pred.add v ts.tr_var ;
+      tr_cst = ts.tr_cst ;
+      tr_prj = ts.tr_prj }
+
+let () =
+  define "remove_constant_transparent_state"
+    (constant @-> transparent_state @-> ret transparent_state) @@ fun c ts ->
+    { tr_var = ts.tr_var ;
+      tr_cst = Cpred.remove c ts.tr_cst ;
+      tr_prj = ts.tr_prj }
+
+let () =
+  define "remove_proj_transparent_state"
+    (projection @-> transparent_state @-> ret transparent_state) @@ fun p ts ->
+    { tr_var = ts.tr_var ;
+      tr_cst = ts.tr_cst ;
+      tr_prj = PRpred.remove (Projection.repr p) ts.tr_prj }
+
+let () =
+  define "remove_var_transparent_state"
+    (ident @-> transparent_state @-> ret transparent_state) @@ fun v ts ->
+    { tr_var = Id.Pred.remove v ts.tr_var ;
+      tr_cst = ts.tr_cst ;
+      tr_prj = ts.tr_prj }
+
+let () =
+  define "mem_constant_transparent_state"
+    (constant @-> transparent_state @-> ret bool) @@ fun c ts ->
+    Cpred.mem c ts.tr_cst
+
+let () =
+  define "mem_proj_transparent_state"
+    (projection @-> transparent_state @-> ret bool) @@ fun p ts ->
+    PRpred.mem (Projection.repr p) ts.tr_prj
+
+let () =
+  define "mem_var_transparent_state"
+    (ident @-> transparent_state @-> ret bool) @@ fun v ts ->
+    Id.Pred.mem v ts.tr_var
 
 (** Tactics around Evarconv unification (in [Ltac2/Unification.v]). *)
 
