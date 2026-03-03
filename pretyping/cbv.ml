@@ -896,7 +896,7 @@ and cbv_apply_rules info env u r stk =
       let psubst, stk = cbv_apply_rule info env [] psubst elims stk in
       let subst, qsubst, usubst =
         Partial_subst.to_arrays_with_defaults
-          ~q:Sorts.Quality.var ~u:Univ.Level.var psubst
+          ~q:(fun _ -> Sorts.Quality.qtype) ~u:(fun _ -> Univ.Level.set) psubst
       in
       let subst = Array.fold_right subs_cons subst env in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in

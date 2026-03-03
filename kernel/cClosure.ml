@@ -1612,7 +1612,7 @@ let rec match_main : type a. (a, a depth) reduction -> _ -> _ -> pat_state:a dep
     | Some { subst; rhs } ->
         let subst, qsubst, usubst =
           Partial_subst.to_arrays_with_defaults
-            ~q:Sorts.Quality.var ~u:Univ.Level.var subst
+            ~q:(fun _ -> Sorts.Quality.qtype) ~u:(fun _ -> Univ.Level.set) subst
         in
         let subst = Array.fold_right subs_cons subst (subs_id 0) in
         let usubst = UVars.Instance.of_array (qsubst, usubst) in

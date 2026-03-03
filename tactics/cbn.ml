@@ -670,7 +670,7 @@ let rec apply_rules whrec env sigma u r stk =
       let psubst, stk = apply_rule whrec env sigma [] psubst elims stk in
       let subst, qsubst, usubst =
         Partial_subst.to_arrays_with_defaults
-          ~q:Sorts.Quality.var ~u:Univ.Level.var psubst
+          ~q:(fun _ -> Sorts.Quality.qtype) ~u:(fun _ -> Univ.Level.set) psubst
       in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in
       let rhsu = subst_instance_constr (EConstr.EInstance.make usubst) (EConstr.of_constr rhs) in
