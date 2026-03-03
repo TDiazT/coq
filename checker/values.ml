@@ -531,7 +531,7 @@ let [_v_hpattern;v_elimination;_v_head_elim;_v_patarg] : _ Vector.t =
   and v_elimination =
     v_sum_c ("pattern_elimination", 0,
          [|[|v_array v_patarg|];                    (* PEApp *)
-           [|v_ind; v_patarg; v_array v_patarg|];   (* PECase *)
+           [|v_ind; v_instance_mask; v_patarg; v_array v_patarg|];   (* PECase *)
            [|v_proj_repr|];                         (* PEProj *)
          |])
 

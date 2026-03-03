@@ -165,7 +165,6 @@ let safe_sort_pattern_of_sort ~loc evd (qsubst, usubst) (st, sq, su as state) s 
       | Some qg -> (st, sq, su), PSGlobal (qg, ba)
       | None -> (st, sq, su), PSQSort (bq, ba)
 
-
 let warn_irrelevant_pattern =
   CWarnings.create ~name:"irrelevant-pattern" ~category:CWarnings.CoreCategories.rewrite_rules
     Pp.(fun () -> str "This subpattern is irrelevant and can never be matched against.")
@@ -206,6 +205,7 @@ let rec safe_pattern_of_constr_aux ~loc env evd usubst depth state t = Constr.ki
       state, (head, elims @ [PEApp pargs])
   | Case (ci, u, params, (ret, _), _, c, brs) ->
       let mib, mip = Inductive.lookup_mind_specif env ci.ci_ind in
+      let state, umask = update_invtblu ~loc evd usubst state u in
 
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state c in
 
@@ -236,7 +236,7 @@ let rec safe_pattern_of_constr_aux ~loc env evd usubst depth state t = Constr.ki
         safe_arg_pattern_of_constr ~loc br_env evd usubst (depth + Array.length nas) state br
       in
       let state, pbrs = Array.fold_left_map_i do_one_branch state brs in
-      state, (head, elims @ [PECase (ci.ci_ind, pret, pbrs)])
+      state, (head, elims @ [PECase (ci.ci_ind, umask, pret, pbrs)])
   | Proj (p, _, c) ->
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state c in
       state, (head, elims @ [PEProj (Projection.repr p)])
@@ -360,7 +360,7 @@ let rec test_pattern_redex env evd ~loc = function
   | PHLambda _, _ -> warn_redex_in_rewrite_rules ?loc (Pp.str " lambda pattern")
   | PHConstr (c, _) as head, PEApp args :: elims -> test_projection_apps env evd ~loc (fst c) args; Array.iter (test_pattern_redex_aux env evd ~loc) args; test_pattern_redex env evd ~loc (head, elims)
   | head, PEApp args :: elims -> Array.iter (test_pattern_redex_aux env evd ~loc) args; test_pattern_redex env evd ~loc (head, elims)
-  | head, PECase (_, ret, brs) :: elims -> test_pattern_redex_aux env evd ~loc ret; Array.iter (test_pattern_redex_aux env evd ~loc) brs; test_pattern_redex env evd ~loc (head, elims)
+  | head, PECase (_, _, ret, brs) :: elims -> test_pattern_redex_aux env evd ~loc ret; Array.iter (test_pattern_redex_aux env evd ~loc) brs; test_pattern_redex env evd ~loc (head, elims)
   | head, PEProj _ :: elims -> test_pattern_redex env evd ~loc (head, elims)
   | PHProd (tys, bod), [] -> Array.iter (test_pattern_redex_aux env evd ~loc) tys; test_pattern_redex_aux env evd ~loc bod
   | (PHRel _ | PHInt _ | PHFloat _ | PHString _ | PHSort _ | PHInd _ | PHConstr _ | PHSymbol _), [] -> ()
@@ -417,7 +417,6 @@ let interp_rule ~collapse_sort_variables (udecl, lhs, rhs: Constrexpr.universe_d
     evd, decl
   in
   let nvarqs = List.length udecl.univdecl_qualities in
-  let nvarus = List.length udecl.univdecl_instance in
 
 
   (* 2. Read left hand side, into a pattern *)
@@ -451,8 +450,18 @@ let interp_rule ~collapse_sort_variables (udecl, lhs, rhs: Constrexpr.universe_d
     CErrors.user_err ?loc:lhs_loc
     Pp.(str "Head head-pattern is not a symbol.")
   in
-  if nvarus <> nvarus' then begin
-    assert (nvarus' < nvarus);
+  let nvarus_eff =
+    let lhs = Vars.subst_univs_level_constr usubst (EConstr.Unsafe.to_constr lhs) in
+    let lhs = UState.nf_universes (Evd.ustate evd) lhs in
+    let _, lhs_us = Vars.sort_and_universes_of_constr lhs in
+    Univ.Level.Set.fold (fun u seen ->
+      match Univ.Level.var_index u with
+      | Some u when u >= 0 -> Int.Map.add u () seen
+      | _ -> seen
+    ) lhs_us Int.Map.empty
+    |> Int.Map.cardinal
+  in
+  if nvarus_eff <> nvarus' then begin
     CErrors.user_err ?loc:lhs_loc
       Pp.(str "Not all universe level variables appear in the pattern.")
   end;
@@ -507,13 +516,30 @@ let interp_rule ~collapse_sort_variables (udecl, lhs, rhs: Constrexpr.universe_d
   in
 
   let rhs = Vars.subst_univs_level_constr usubst rhs in
+  let rhs = UState.nf_universes (Evd.ustate evd) rhs in
+  let rhs_qs, rhs_us = Vars.sort_and_universes_of_constr rhs in
+  let max_idx default set get =
+    set |> Seq.fold_left (fun acc x ->
+      match get x with
+      | Some i -> max acc i
+      | None -> acc
+    ) default
+  in
+  let nvarqs_runtime =
+    let max_q = max_idx (-1) (Sorts.QVar.Set.to_seq rhs_qs) Sorts.QVar.var_index in
+    max nvarqs' (max_q + 1)
+  in
+  let nvarus_runtime =
+    let max_u = max_idx (-1) (rhs_us |> Univ.Level.Set.elements |> List.to_seq) Univ.Level.var_index in
+    max nvarus' (max_u + 1)
+  in
 
   let test_qvar q =
     match Sorts.QVar.var_index q with
     | Some -1 ->
         CErrors.user_err ?loc:rhs_loc
           Pp.(str "Sort variable " ++ Termops.pr_evd_qvar evd q ++ str " appears in the replacement but does not appear in the pattern.")
-    | Some n when n < 0 || n > nvarqs' -> CErrors.anomaly Pp.(str "Unknown sort variable in rewrite rule.")
+    | Some n when n < 0 || n > nvarqs_runtime -> CErrors.anomaly Pp.(str "Unknown sort variable in rewrite rule.")
     | Some _ -> ()
     | None when Option.has_some (Sorts.QVar.name q) -> ()
     | None ->
@@ -527,7 +553,7 @@ let interp_rule ~collapse_sort_variables (udecl, lhs, rhs: Constrexpr.universe_d
     | Some -1 ->
         CErrors.user_err ?loc:rhs_loc
           Pp.(str "Universe level variable " ++ Termops.pr_evd_level evd lvl ++ str " appears in the replacement but does not appear in the pattern.")
-    | Some n when n < 0 || n > nvarus' -> CErrors.anomaly Pp.(str "Unknown universe level variable in rewrite rule")
+    | Some n when n < 0 || n > nvarus_runtime -> CErrors.anomaly Pp.(str "Unknown universe level variable in rewrite rule")
     | Some _ -> ()
     | None ->
       match UGraph.check_declared_universes (Environ.universes env) (Univ.Level.Set.singleton lvl) with
@@ -541,12 +567,11 @@ let interp_rule ~collapse_sort_variables (udecl, lhs, rhs: Constrexpr.universe_d
   in
 
   let () =
-    let qs, us = Vars.sort_and_universes_of_constr rhs in
-    Sorts.QVar.Set.iter test_qvar qs;
-    Univ.Level.Set.iter test_level us
+    Sorts.QVar.Set.iter test_qvar rhs_qs;
+    Univ.Level.Set.iter test_level rhs_us
   in
 
-  head_symbol, { nvars = (nvars' - 1, nvarqs', nvarus'); lhs_pat = head_umask, elims; rhs }
+  head_symbol, { nvars = (nvars' - 1, nvarqs_runtime, nvarus_runtime); lhs_pat = head_umask, elims; rhs }
 
 let do_rules ?(collapse_sort_variables = true) id rules =
   let env = Global.env () in

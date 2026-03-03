@@ -869,8 +869,9 @@ and cbv_apply_rule info env ctx psubst es stk =
         let usedpargs, rempargs = Array.chop na pargs in
         let psubst = Array.fold_left2 (cbv_match_arg_pattern info env ctx) psubst usedpargs args in
         cbv_apply_rule info env ctx psubst (PEApp rempargs :: e) s
-  | Declarations.PECase (pind, pret, pbrs) :: e, CASE (u, pms, (p, _), brs, iv, ci, env, s) ->
+  | Declarations.PECase (pind, pu, pret, pbrs) :: e, CASE (u, pms, (p, _), brs, iv, ci, env, s) ->
       if not @@ Environ.QInd.equal info.env pind ci.ci_ind then raise PatternFailure;
+      let psubst = match_instance pu u psubst in
       let specif = Inductive.lookup_mind_specif info.env ci.ci_ind in
       let ntys_ret = Inductive.expand_arity specif (ci.ci_ind, u) pms (fst p) in
       let ntys_ret = apply_env_context env ntys_ret in
@@ -893,7 +894,10 @@ and cbv_apply_rules info env u r stk =
       let psubst = Partial_subst.make nvars in
       let psubst = match_instance pu u psubst in
       let psubst, stk = cbv_apply_rule info env [] psubst elims stk in
-      let subst, qsubst, usubst = Partial_subst.to_arrays psubst in
+      let subst, qsubst, usubst =
+        Partial_subst.to_arrays_with_defaults
+          ~q:Sorts.Quality.var ~u:Univ.Level.var psubst
+      in
       let subst = Array.fold_right subs_cons subst env in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in
       let rhsu = Vars.subst_instance_constr usubst rhs in

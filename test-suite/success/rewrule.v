@@ -95,7 +95,7 @@ Fail Rewrite Rule id_rew_fail := Datatypes.id _ ?x => ?x. (* Subterm not recogni
 Fail Rewrite Rule id_rew_fail := 0 => 0. (* Head head-pattern is not a symbol. *)
 Fail Rewrite Rule id_rew_fail := id _ (?x ?y) => ?x ?y. (* Subterm not recognised as pattern: ?x *)
 Fail Rewrite Rule id_rew_fail := id _ _ => ?x. (* Unknown existential variable. *)
-Fail Rewrite Rule id_rew_fail := @{u} |- id _ ?x => ?x. (* Not all universe level variables appear in the pattern. *)
+Rewrite Rule id_rew_unused_univ := @{u} |- id _ ?x => ?x.
 Fail Rewrite Rule id_rew_fail := id _ (?x, ?x) => ?x. (* Variable ?x is bound multiple times in the pattern (holes number 1 and 2). *)
 Fail Rewrite Rule id_rew_fail := @{u+} |- id _ (Type@{u}, Type@{u}) => ?x. (* Universe variable u is bound multiple times in the pattern (holes number 0 and 1). *)
 Fail Rewrite Rule id_rew_fail := id _ (?x, ?y) => (?x, ?y). (* The replacement term contains unresolved implicit arguments: (?x, ?y) *)

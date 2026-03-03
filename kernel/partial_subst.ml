@@ -38,6 +38,12 @@ let maybe_add_univ io u tqus : ('t, 'q, 'u) t =
 let to_arrays (ts, qs, us : _ t) =
   (WriteOnceArray.to_array ts, WriteOnceArray.to_array qs, WriteOnceArray.to_array us)
 
+let to_arrays_with_defaults ~q ~u (ts, qs, us : _ t) =
+  let ts = WriteOnceArray.to_array ts in
+  let qs = Array.mapi (fun i -> function Some x -> x | None -> q i) (WriteOnceArray.Internal.unsafe_to_array qs) in
+  let us = Array.mapi (fun i -> function Some x -> x | None -> u i) (WriteOnceArray.Internal.unsafe_to_array us) in
+  (ts, qs, us)
+
 let pr_nodup_array elem v =
   let a = WriteOnceArray.Internal.unsafe_to_array v in
   Pp.(str "[|" ++ prvect_with_sep pr_semicolon (function None -> str "\u{2205}" (* Empty set *) | Some e -> elem e) a++str"|]")

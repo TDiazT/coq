@@ -1610,7 +1610,10 @@ let rec match_main : type a. (a, a depth) reduction -> _ -> _ -> pat_state:a dep
   | LocStart { elims; context; head; stack; next = Return _ as next } ->
     begin match Array.find2_map (fun state elim -> match state, elim with Live s, Check [] -> Some s | _ -> None) states elims with
     | Some { subst; rhs } ->
-        let subst, qsubst, usubst = Partial_subst.to_arrays subst in
+        let subst, qsubst, usubst =
+          Partial_subst.to_arrays_with_defaults
+            ~q:Sorts.Quality.var ~u:Univ.Level.var subst
+        in
         let subst = Array.fold_right subs_cons subst (subs_id 0) in
         let usubst = UVars.Instance.of_array (qsubst, usubst) in
         let m' = mk_clos (subst, usubst) rhs in
@@ -1685,9 +1688,10 @@ and match_elim : 'a. ('a, 'a depth) reduction -> _ -> _ -> pat_state:'a depth ->
       let ntys_ret = Environ.expand_arity specif (ci.ci_ind, u) pms (fst p) in
       let ntys_brs = Environ.expand_branch_contexts specif u pms brs in
       let prets, pbrss, elims, states = extract_or_kill4 (function [@ocaml.warning "-4"]
-      | PECase (pind, pret, pbrs) :: es, subst ->
+      | PECase (pind, pu, pret, pbrs) :: es, psubst ->
         if not @@ Ind.CanOrd.equal pind ci.ci_ind then None else
-          Some (pret, pbrs, es, subst)
+        let subst' = UVars.Instance.pattern_match pu u psubst.subst in
+        Option.map (fun subst -> (pret, pbrs, es, { psubst with subst })) subst'
       | _ -> None)
           elims states
       in

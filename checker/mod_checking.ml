@@ -110,8 +110,9 @@ let rec get_holes_profiles env nargs ndecls lincheck el =
 
 and get_holes_profiles_elim env nargs ndecls lincheck = function
   | PEApp args -> Array.fold_left (get_holes_profiles_parg env nargs ndecls) lincheck args
-  | PECase (ind, ret, brs) ->
+  | PECase (ind, u, ret, brs) ->
       let mib, mip = Inductive.lookup_mind_specif env ind in
+      let lincheck = check_instance_mask env mib.mind_universes u lincheck in
       let lincheck = get_holes_profiles_parg env (nargs + mip.mind_nrealargs + 1) (ndecls + mip.mind_nrealdecls + 1) lincheck ret in
       Array.fold_left3 (fun lincheck nargs_b ndecls_b -> get_holes_profiles_parg env (nargs + nargs_b) (ndecls + ndecls_b) lincheck) lincheck mip.mind_consnrealargs mip.mind_consnrealdecls brs
   | PEProj proj ->
@@ -184,7 +185,10 @@ let check_rewrite_rule env lab i (symb, rule) =
   let lincheck = Partial_subst.make nvars in
   let lincheck = check_instance_mask env symb_cb.const_universes (fst lhs_pat) lincheck in
   let lincheck = get_holes_profiles env 0 0 lincheck (snd lhs_pat) in
-  let holes_profile, _, _ = Partial_subst.to_arrays lincheck in
+  let holes_profile, _, _ =
+    Partial_subst.to_arrays_with_defaults
+      ~q:(fun _ -> ()) ~u:(fun _ -> ()) lincheck
+  in
   let () = check_rhs env holes_profile rhs in
   ()
 

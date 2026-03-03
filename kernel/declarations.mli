@@ -331,7 +331,7 @@ type head_pattern =
 
 and pattern_elimination =
   | PEApp     of pattern_argument array
-  | PECase    of inductive * pattern_argument * pattern_argument array
+  | PECase    of inductive * (int option, int option) instance_mask * pattern_argument * pattern_argument array
   | PEProj    of Projection.Repr.t
 
 and head_elimination = head_pattern * pattern_elimination list

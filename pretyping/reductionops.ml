@@ -789,8 +789,9 @@ and apply_rule whrec env sigma ctx psubst es stk =
       let args, s = extract_n_stack [] np s in
       let psubst = List.fold_left2 (match_arg_pattern whrec env sigma ctx) psubst pargs args in
       apply_rule whrec env sigma ctx psubst e s
-  | Declarations.PECase (pind, pret, pbrs) :: e, Stack.Case (ci, u, pms, p, iv, brs) :: s ->
+  | Declarations.PECase (pind, pu, pret, pbrs) :: e, Stack.Case (ci, u, pms, p, iv, brs) :: s ->
       if not @@ QInd.equal env pind ci.ci_ind then raise PatternFailure;
+      let psubst = match_einstance sigma pu u psubst in
       let dummy = mkProp in
       let (_, _, _, ((ntys_ret, ret), _), _, _, brs) = EConstr.annotate_case env sigma (ci, u, pms, p, NoInvert, dummy, brs) in
       let psubst = match_arg_pattern whrec env sigma (ntys_ret @ ctx) psubst pret ret in
@@ -811,7 +812,10 @@ let rec apply_rules whrec env sigma u r stk =
       let psubst = Partial_subst.make nvars in
       let psubst = match_einstance sigma pu u psubst in
       let psubst, stk = apply_rule whrec env sigma [] psubst elims stk in
-      let subst, qsubst, usubst = Partial_subst.to_arrays psubst in
+      let subst, qsubst, usubst =
+        Partial_subst.to_arrays_with_defaults
+          ~q:Sorts.Quality.var ~u:Univ.Level.var psubst
+      in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in
       let rhsu = subst_instance_constr (EConstr.EInstance.make usubst) (EConstr.of_constr rhs) in
       let rhs' = substl (Array.to_list subst) rhsu in
