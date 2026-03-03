@@ -22,8 +22,10 @@ val maybe_add_quality : int option -> 'q -> ('t, 'q, 'u) t -> ('t, 'q, 'u) t
 val add_univ : int -> 'u -> ('t, 'q, 'u) t -> ('t, 'q, 'u) t
 val maybe_add_univ : int option -> 'u -> ('t, 'q, 'u) t -> ('t, 'q, 'u) t
 
+val terms : ('t, 'q, 'u) t -> 't array
 val to_arrays : ('t, 'q, 'u) t -> 't array * 'q array * 'u array
 val to_arrays_with_defaults : q:(int -> 'q) -> u:(int -> 'u) -> ('t, 'q, 'u) t -> 't array * 'q array * 'u array
+val to_arrays_with_fallback : q_default:'q -> u_default:'u -> ('t, 'q, 'u) t -> 't array * 'q array * 'u array
 
 val pr :
     ('t -> Pp.t) -> ('q -> Pp.t) -> ('u -> Pp.t) ->

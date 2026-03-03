@@ -660,6 +660,10 @@ and apply_rule whrec env sigma ctx psubst es stk =
 
 
 let rec apply_rules whrec env sigma u r stk =
+  let default_univ_from_instance u =
+    let _, us = UVars.Instance.to_array (EInstance.kind sigma u) in
+    if Array.length us = 0 then Univ.Level.set else us.(0)
+  in
   let open Declarations in
   match r with
   | [] -> raise PatternFailure
@@ -669,8 +673,8 @@ let rec apply_rules whrec env sigma u r stk =
       let psubst = match_einstance sigma pu u psubst in
       let psubst, stk = apply_rule whrec env sigma [] psubst elims stk in
       let subst, qsubst, usubst =
-        Partial_subst.to_arrays_with_defaults
-          ~q:(fun _ -> Sorts.Quality.qtype) ~u:(fun _ -> Univ.Level.set) psubst
+        Partial_subst.to_arrays_with_fallback
+          ~q_default:Sorts.Quality.qtype ~u_default:(default_univ_from_instance u) psubst
       in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in
       let rhsu = subst_instance_constr (EConstr.EInstance.make usubst) (EConstr.of_constr rhs) in

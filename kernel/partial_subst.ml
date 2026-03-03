@@ -35,6 +35,9 @@ let add_univ i u tqus : ('t, 'q, 'u) t =
 let maybe_add_univ io u tqus : ('t, 'q, 'u) t =
   Option.fold_right (fun i -> add_univ i u) io tqus
 
+let terms (ts, _, _ : _ t) =
+  WriteOnceArray.to_array ts
+
 let to_arrays (ts, qs, us : _ t) =
   (WriteOnceArray.to_array ts, WriteOnceArray.to_array qs, WriteOnceArray.to_array us)
 
@@ -42,6 +45,25 @@ let to_arrays_with_defaults ~q ~u (ts, qs, us : _ t) =
   let ts = WriteOnceArray.to_array ts in
   let qs = Array.mapi (fun i -> function Some x -> x | None -> q i) (WriteOnceArray.Internal.unsafe_to_array qs) in
   let us = Array.mapi (fun i -> function Some x -> x | None -> u i) (WriteOnceArray.Internal.unsafe_to_array us) in
+  (ts, qs, us)
+
+let first_some a =
+  let rec aux i =
+    if i >= Array.length a then None
+    else match a.(i) with
+    | Some x -> Some x
+    | None -> aux (i + 1)
+  in
+  aux 0
+
+let to_arrays_with_fallback ~q_default ~u_default (ts, qs, us : _ t) =
+  let ts = WriteOnceArray.to_array ts in
+  let qs = WriteOnceArray.Internal.unsafe_to_array qs in
+  let us = WriteOnceArray.Internal.unsafe_to_array us in
+  let q0 = Option.default q_default (first_some qs) in
+  let u0 = Option.default u_default (first_some us) in
+  let qs = Array.map (function Some x -> x | None -> q0) qs in
+  let us = Array.map (function Some x -> x | None -> u0) us in
   (ts, qs, us)
 
 let pr_nodup_array elem v =

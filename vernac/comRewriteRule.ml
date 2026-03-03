@@ -130,6 +130,41 @@ let update_invtblu ~loc evd (qsubst, usubst) (state, stateq, stateu : state) u :
   in
   (state, stateq, stateu), (maskq, masku)
 
+let update_or_reuse_invtblu1 lvl (curvaru, tbl as stateu) =
+  match Int.Map.find_opt lvl tbl with
+  | Some _ -> stateu, None
+  | None ->
+    let curvaru', tbl' = succ curvaru, Int.Map.add lvl curvaru tbl in
+    (curvaru', tbl'), Some curvaru
+
+let update_or_reuse_invtblu ~loc evd (qsubst, usubst) (state, stateq, stateu : state) u : state * _ =
+  let q, u = UVars.Instance.to_array u in
+  let stateq, maskq = Array.fold_left_map (fun stateq q ->
+      match Sorts.Quality.subst (Sorts.Quality.subst_fn qsubst) q with
+      | Sorts.Quality.QConstant qc -> stateq, PQConstant qc
+      | Sorts.Quality.QVar qv ->
+        match Sorts.QVar.repr qv with
+        | Global qg -> stateq, PQGlobal qg
+        | Var qi ->
+          begin match Int.Map.find_opt qi (snd stateq) with
+          | Some _ -> stateq, PQVar None
+          | None ->
+            let stateq = update_invtblq1 ~loc evd q qi stateq in
+            stateq, PQVar (Some qi)
+          end
+        | Unif _ -> stateq, PQVar None
+    ) stateq q in
+  let stateu, masku = Array.fold_left_map (fun stateu lvlold ->
+      let lvlnew = Univ.Level.var_index @@ UVars.subst_univs_level_level usubst lvlold in
+      match lvlnew with
+      | None -> stateu, None
+      | Some lvl ->
+        let stateu, idx = update_or_reuse_invtblu1 lvl stateu in
+        stateu, idx
+    ) stateu u
+  in
+  (state, stateq, stateu), (maskq, masku)
+
 let universe_level_subst_var_index usubst u =
   match Univ.Universe.level u with
     | None -> None
@@ -205,9 +240,9 @@ let rec safe_pattern_of_constr_aux ~loc env evd usubst depth state t = Constr.ki
       state, (head, elims @ [PEApp pargs])
   | Case (ci, u, params, (ret, _), _, c, brs) ->
       let mib, mip = Inductive.lookup_mind_specif env ci.ci_ind in
-      let state, umask = update_invtblu ~loc evd usubst state u in
 
       let state, (head, elims) = safe_pattern_of_constr_aux ~loc env evd usubst depth state c in
+      let state, umask = update_or_reuse_invtblu ~loc evd usubst state u in
 
       let paramdecl = Vars.subst_instance_context u mib.mind_params_ctxt in
       let paramsubst = Vars.subst_of_rel_context_instance paramdecl params in

@@ -887,6 +887,10 @@ and cbv_apply_rule info env ctx psubst es stk =
 
 
 and cbv_apply_rules info env u r stk =
+  let default_univ_from_instance u =
+    let _, us = UVars.Instance.to_array u in
+    if Array.length us = 0 then Univ.Level.set else us.(0)
+  in
   match r with
   | [] -> raise PatternFailure
   | { lhs_pat = (pu, elims); nvars; rhs } :: rs ->
@@ -895,8 +899,8 @@ and cbv_apply_rules info env u r stk =
       let psubst = match_instance pu u psubst in
       let psubst, stk = cbv_apply_rule info env [] psubst elims stk in
       let subst, qsubst, usubst =
-        Partial_subst.to_arrays_with_defaults
-          ~q:(fun _ -> Sorts.Quality.qtype) ~u:(fun _ -> Univ.Level.set) psubst
+        Partial_subst.to_arrays_with_fallback
+          ~q_default:Sorts.Quality.qtype ~u_default:(default_univ_from_instance u) psubst
       in
       let subst = Array.fold_right subs_cons subst env in
       let usubst = UVars.Instance.of_array (qsubst, usubst) in
