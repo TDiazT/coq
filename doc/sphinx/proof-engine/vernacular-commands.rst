@@ -519,7 +519,7 @@ Requests to the environment
       Locate nat.
       Locate Datatypes.O.
       Locate Init.Datatypes.O.
-      Locate Stdlib.Init.Datatypes.O.
+      Locate Corelib.Init.Datatypes.O.
       Locate I.Dont.Exist.
 
 .. _printing-flags:
@@ -605,7 +605,7 @@ file is a particular case of a module called a *library file*.
    (if :n:`From @dirpath` is given) or :n:`{* @ident__implicit. }@qualid` (if
    the optional `From` clause is absent). :n:`{* @ident__implicit. }` represents
    the parts of the fully qualified name that are implicit.  For example,
-   `From Stdlib Require Nat` loads `Stdlib.Init.Nat` and `Init` is implicit.
+   `From Corelib Require Nat` loads `Corelib.Init.Nat` and `Init` is implicit.
    :n:`@ident` is the final component of the :n:`@qualid`.
 
    If a file is found, its logical name must be the same as the one
@@ -1096,6 +1096,21 @@ Printing constructions in full
       the goal unreadable.
 
       .. see a contrived example here: https://github.com/rocq-prover/rocq/pull/11718#discussion_r415481854
+
+.. flag:: Printing Fully Qualified
+
+   When this :term:`flag` is turned on, all names (global references such as constants,
+   inductives, constructors, and section variables, as well as modules, module types,
+   universes, etc) are printed using their fully qualified paths. This is useful when
+   there are multiple objects with the same short name in different modules, and you
+   want to clearly distinguish them.
+
+   For example, if you have both ``Foo.ax`` and ``Bar.ax`` defined, turning on this
+   flag will ensure they are printed as ``Module.Foo.ax`` and ``Module.Bar.ax``
+   respectively (where ``Module`` is the top-level module name), rather than
+   potentially ambiguous short names.
+
+   This flag is off by default.
 
 .. _controlling-typing-flags:
 

@@ -316,15 +316,15 @@ let (forward_general_setoid_rewrite_clause, general_setoid_rewrite_clause) = Hoo
 let scheme_name dep lft2rgt inccl =
   match dep, lft2rgt, inccl with
     (* Non dependent case *)
-    | false, Some true, true -> rew_l2r_scheme_kind
-    | false, Some true, false -> rew_r2l_scheme_kind
-    | false, _, false -> rew_l2r_scheme_kind
-    | false, _, true -> rew_r2l_scheme_kind
+    | false, true, true -> rew_l2r_scheme_kind
+    | false, true, false -> rew_r2l_scheme_kind
+    | false, false, false -> rew_l2r_scheme_kind
+    | false, false, true -> rew_r2l_scheme_kind
     (* Dependent case *)
-    | true, Some true, true -> rew_l2r_dep_scheme_kind
-    | true, Some true, false -> rew_l2r_forward_dep_scheme_kind
-    | true, _, true -> rew_r2l_dep_scheme_kind
-    | true, _, false -> rew_r2l_forward_dep_scheme_kind
+    | true, true, true -> rew_l2r_dep_scheme_kind
+    | true, true, false -> rew_l2r_forward_dep_scheme_kind
+    | true, false, true -> rew_r2l_dep_scheme_kind
+    | true, false, false -> rew_r2l_forward_dep_scheme_kind
 
 let lib_ref_opt_pos name pos =
   match Rocqlib.lib_ref_opt name with
@@ -336,27 +336,27 @@ let lib_ref_opt_pos name pos =
 let eq_scheme_pattern dep lft2rgt inccl target is_set = let open Sorts.Quality in
   match dep, lft2rgt, inccl, target , is_set with
     (* Non dependent case *)
-    | false, Some true, true , QConstant QType , false -> Some ("rect_r")
-    | false, Some true, true , QConstant QType , true -> Some ("rec_r")
-    | false, Some true, true , QConstant QProp , _ -> Some ("ind_r")
-    | false, Some true, true , QConstant QSProp , _ -> Some ("sind_r")
-    | false, Some true, false , QConstant QType , false -> Some ("rect")
-    | false, Some true, false , QConstant QType , true -> Some ("rec")
-    | false, Some true, false , QConstant QProp , _ -> Some ("ind")
-    | false, Some true, false , QConstant QSProp , _ -> Some ("sind")
-    | false, _ , false , QConstant QType , false -> Some ("rect_r")
-    | false, _ , false , QConstant QType , true -> Some ("rec_r")
-    | false, _ , false , QConstant QProp , _ -> Some ("ind_r")
-    | false, _ , false , QConstant QSProp , _ -> Some ("sind_r")
-    | false, _ , true , QConstant QProp , _ -> Some ("ind")
-    | false, _ , true , QConstant QSProp , _ -> Some ("sind")
-    | false, _ , true , QConstant QType , false -> Some ("rect")
-    | false, _ , true , QConstant QType , true -> Some ("rec")
+    | false, true, true , QConstant QType , false -> Some ("rect_r")
+    | false, true, true , QConstant QType , true -> Some ("rec_r")
+    | false, true, true , QConstant QProp , _ -> Some ("ind_r")
+    | false, true, true , QConstant QSProp , _ -> Some ("sind_r")
+    | false, true, false , QConstant QType , false -> Some ("rect")
+    | false, true, false , QConstant QType , true -> Some ("rec")
+    | false, true, false , QConstant QProp , _ -> Some ("ind")
+    | false, true, false , QConstant QSProp , _ -> Some ("sind")
+    | false, false, false , QConstant QType , false -> Some ("rect_r")
+    | false, false, false , QConstant QType , true -> Some ("rec_r")
+    | false, false, false , QConstant QProp , _ -> Some ("ind_r")
+    | false, false, false , QConstant QSProp , _ -> Some ("sind_r")
+    | false, false, true , QConstant QProp , _ -> Some ("ind")
+    | false, false, true , QConstant QSProp , _ -> Some ("sind")
+    | false, false, true , QConstant QType , false -> Some ("rect")
+    | false, false, true , QConstant QType , true -> Some ("rec")
     (* Dependent case *)
-    | true, Some true, true , QConstant QType , _ -> Some ("rect_r_dep")
-    | true, Some true, true , QConstant QProp , _ -> Some ("ind_r_dep")
-    | true, _ , true , QConstant QType , _  -> Some ("rect_dep")
-    | true, _ , true , QConstant QProp , _  -> Some ("ind_dep")
+    | true, true, true , QConstant QType , _ -> Some ("rect_r_dep")
+    | true, true, true , QConstant QProp , _ -> Some ("ind_r_dep")
+    | true, false, true , QConstant QType , _  -> Some ("rect_dep")
+    | true, false, true , QConstant QProp , _  -> Some ("ind_dep")
     | _ , _, _ , _ , _ -> None
 
 let eq_scheme_name name dep lft2rgt inccl target is_set =
@@ -368,15 +368,15 @@ let eq_scheme_name name dep lft2rgt inccl target is_set =
 let has_J_ref dep lft2rgt inccl =
   match dep, lft2rgt, inccl with
     (* Non dependent case *)
-    | false, Some true, true -> Rocqlib.lib_ref "core.Has_Leibniz_r" , AtPosition 5
-    | false, Some true, false -> Rocqlib.lib_ref "core.Has_Leibniz" , AtPosition 5
-    | false, _, false -> Rocqlib.lib_ref "core.Has_Leibniz_r" , AtPosition 5
-    | false, _, true -> Rocqlib.lib_ref "core.Has_Leibniz" , AtPosition 5
+    | false, true, true -> Rocqlib.lib_ref "core.Has_Leibniz_r" , AtPosition 5
+    | false, true, false -> Rocqlib.lib_ref "core.Has_Leibniz" , AtPosition 5
+    | false, false, false -> Rocqlib.lib_ref "core.Has_Leibniz_r" , AtPosition 5
+    | false, false, true -> Rocqlib.lib_ref "core.Has_Leibniz" , AtPosition 5
     (* Dependent case *)
-    | true, Some true, true -> Rocqlib.lib_ref "core.Has_J_r" , AtPosition 5
-    | true, Some true, false -> Rocqlib.lib_ref "core.Has_J_r_forward" , AtPosition 4
-    | true, _, true -> Rocqlib.lib_ref "core.Has_J" , AtPosition 5
-    | true, _, false -> Rocqlib.lib_ref "core.Has_J_forward" , AtPosition 4
+    | true, true, true -> Rocqlib.lib_ref "core.Has_J_r" , AtPosition 5
+    | true, true, false -> Rocqlib.lib_ref "core.Has_J_r_forward" , AtPosition 4
+    | true, false, true -> Rocqlib.lib_ref "core.Has_J" , AtPosition 5
+    | true, false, false -> Rocqlib.lib_ref "core.Has_J_forward" , AtPosition 4
 
 let level_init l sigma =
   let rec aux l sigma =
@@ -388,7 +388,7 @@ let level_init l sigma =
       sigma , new_level :: r
   in aux l sigma
 
-let lookup_eq_eliminator env sigma eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort =
+let lookup_eq_eliminator env sigma eq het_eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort =
   let has_elim_ref , indarg = has_J_ref dep l2r inccl in
   let has_refl_ref = Rocqlib.lib_ref "core.Has_refl" in
   let c_quality = ESorts.quality sigma c_sort in
@@ -400,12 +400,22 @@ let lookup_eq_eliminator env sigma eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort =
   let p_level = Sorts.univ_of_sort (ESorts.kind sigma p_sort) in
   let sigma , univs = level_init [ c_level; e_level; p_level ] sigma in
   let names = EInstance.make @@ UVars.Instance.of_array (Array.of_list qs, Array.of_list univs) in
+  (* eta-expansion for equality fun A => eq A *)
   let eta_expand name typ f =
       let body = EConstr.mkApp (Vars.lift 1 f , [| mkRel 1 |] ) in
       EConstr.mkLambda (EConstr.nameR name, typ , body) in
+  (* Special eta-expansion for heterogeneous equality fun A x => JMeq A x A *)
+  let eta_expand_het_eq name namevar typ f =
+      let body = EConstr.mkApp (Vars.lift 2 f , [| mkRel 2 |] ) in
+      let body = EConstr.mkApp (body , [| mkRel 1 |] ) in
+      let body = EConstr.mkApp (body , [| mkRel 2 |] ) in
+      let body = EConstr.mkLambda (EConstr.nameR namevar, mkRel 1 , body) in
+      EConstr.mkLambda (EConstr.nameR name, typ , body) in
   (* This patch is to handle template poly equality with carrier in Prop, because of cumulatitivty of Prop into Type *)
   let c_type = EConstr.mkSort (ESorts.make (Sorts.make c_quality (Univ.Universe.make (List.hd univs)))) in
-  let eq = eta_expand (Id.of_string "A") c_type eq in
+  let eq = if het_eq
+    then eta_expand_het_eq (Id.of_string "A") (Id.of_string "x") c_type eq
+    else eta_expand (Id.of_string "A") c_type eq in
   let sigma , has_J_class = Evd.fresh_global ~names env sigma has_elim_ref in
   if dep then
     let has_refl_names =
@@ -419,8 +429,8 @@ let lookup_eq_eliminator env sigma eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort =
     let sigma , app = Typing.checked_appvect env sigma has_J_class [| eq |] in
     (sigma , (app, indarg))
 
-let lookup_eq_eliminator_tc env sigma eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort =
-  let sigma, (query,indarg) = lookup_eq_eliminator env sigma eq
+let lookup_eq_eliminator_tc env sigma eq het_eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort =
+  let sigma, (query,indarg) = lookup_eq_eliminator env sigma eq het_eq
       ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort in
   let db = Hints.searchtable_map rewrite_db in
   let (sigma , c) = Class_tactics.resolve_one_typeclass ~db env sigma query in
@@ -435,7 +445,7 @@ let which_equality_opt env sigma c =
     | None -> None in
   Option.List.flatten @@ List.map (find_eq env sigma c) ["eq";"identity"]
 
-let lookup_eq_eliminator_with_error env sigma eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort =
+let lookup_eq_eliminator_with_error ?(het_eq=false) env sigma eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort =
   let which_eq = which_equality_opt env sigma eq in
   let eq_scheme = Option.List.flatten @@ List.map (fun name -> eq_scheme_name name dep l2r inccl (ESorts.quality sigma p_sort) (ESorts.is_set sigma p_sort)) which_eq in
   match eq_scheme with
@@ -445,14 +455,14 @@ let lookup_eq_eliminator_with_error env sigma eq ~dep ~inccl ~l2r ~c_sort ~e_sor
     (sigma , mkConstU (c,u)), indarg
   | _ ->
     try
-      lookup_eq_eliminator_tc env sigma eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort
+      lookup_eq_eliminator_tc env sigma eq het_eq ~dep ~inccl ~l2r ~c_sort ~e_sort ~p_sort
     with Not_found -> user_err Pp.(
       str "Eliminator not found for query for equality carrier: " ++ Sorts.raw_pr (ESorts.kind sigma e_sort) ++
       str " carrier quality: " ++ Sorts.raw_pr (ESorts.kind sigma c_sort) ++
       str " target quality: " ++ Sorts.raw_pr (ESorts.kind sigma p_sort))
 
-let lookup_eq_eliminator_opt env sigma eq ~dep ~inccl l2r ~c_sort ~e_sort ~p_sort =
-  try Some (lookup_eq_eliminator_with_error env sigma eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort)
+let lookup_eq_eliminator_opt env sigma eq ~dep het_eq ~inccl l2r ~c_sort ~e_sort ~p_sort =
+  try Some (lookup_eq_eliminator_with_error ~het_eq env sigma eq ~dep ~inccl ~l2r ~e_sort ~c_sort ~p_sort)
   with _ -> None
 
 type eq_scheme_kind = Minimality of UnivGen.QualityOrSet.t | Rewriting | Equality
@@ -495,14 +505,17 @@ let find_elim lft2rgt dep inccl type_of_cls (ctx, hdcncl, args) =
       Proofview.Unsafe.tclEVARS sigma <*> Proofview.tclUNIT (gref, UnknownPosition)
     | _ -> assert false
   in
-  if List.length args = 3
+  let nb_args = List.length args in
+  let maybe_eq = nb_args == 3 in
+  let maybe_het_eq = nb_args == 4 in
+  if maybe_eq || maybe_het_eq
   then
     let env' = EConstr.push_rel_context ctx env in
     let args = Array.of_list args in
     let e_sort = Retyping.get_sort_of env' sigma (mkApp (hdcncl, args)) in
     let c_sort = Retyping.get_sort_of env' sigma args.(0) in
     let p_sort = Retyping.get_sort_of env sigma type_of_cls in
-    match lookup_eq_eliminator_opt env sigma hdcncl ~dep ~inccl lft2rgt ~c_sort ~e_sort ~p_sort with
+    match lookup_eq_eliminator_opt env sigma hdcncl maybe_het_eq ~dep ~inccl lft2rgt ~c_sort ~e_sort ~p_sort with
     | Some ((sigma, c),indarg) ->
         Proofview.Unsafe.tclEVARS sigma <*> Proofview.tclUNIT (c,indarg)
     | None -> gen_elim ()
@@ -520,7 +533,7 @@ let leibniz_rewrite_ebindings_clause cls lft2rgt tac c ((_, hdcncl, _) as t) l w
   let inccl = Option.is_empty cls in
   find_elim lft2rgt dep inccl type_of_cls t >>= fun (elim, indarg) ->
       general_elim_clause with_evars frzevars tac cls c t l
-      (match lft2rgt with None -> false | Some b -> b) elim indarg
+      lft2rgt elim indarg
   end
 
 let adjust_rewriting_direction args lft2rgt =
@@ -530,10 +543,10 @@ let adjust_rewriting_direction args lft2rgt =
     (* more natural to see -> as the rewriting to the constant *)
     if not lft2rgt then
       user_err Pp.(str "Rewriting non-symmetric equality not allowed from right-to-left.");
-    None
+    false
   | _ ->
     (* other equality *)
-    Some lft2rgt
+    lft2rgt
 
 let rewrite_side_tac tac sidetac = side_tac tac (Option.map fst sidetac)
 
@@ -873,7 +886,7 @@ let set_keep_equality = KeepEqualitiesTable.set
 
 let keep_head_inductive sigma c =
   (* Note that we do not weak-head normalize c before checking it is an
-     applied inductive, because [get_sort_sort_of] did not use to either.
+     applied inductive, because [get_sort_of] did not use to either.
      As a matter of fact, if it reduces to an applied template inductive
      type but is not syntactically equal to it, it will fail to project. *)
   let _, hd = EConstr.decompose_prod sigma c in
@@ -883,14 +896,15 @@ let keep_head_inductive sigma c =
   | _ -> false
 
 let find_positions env sigma ~keep_proofs ~no_discr ~eqsort ~goalsort t1 t2 =
-  let project env posn t1 t2 =
+  let project env posn allowed_elim t1 t2 =
     let ty1 = get_type_of env sigma t1 in
     let keep =
       if keep_head_inductive sigma ty1 then true
       else
         let s = get_sort_quality_of env sigma ty1 in
         (keep_proofs || not (UnivGen.QualityOrSet.equal s UnivGen.QualityOrSet.prop)) &&
-        not (UnivGen.QualityOrSet.equal s UnivGen.QualityOrSet.sprop)
+        not (UnivGen.QualityOrSet.equal s UnivGen.QualityOrSet.sprop) &&
+        allowed_elim
     in
     if keep then [(List.rev posn,t1,t2)] else []
   in
@@ -898,36 +912,39 @@ let find_positions env sigma ~keep_proofs ~no_discr ~eqsort ~goalsort t1 t2 =
   let eqqual = Sorts.quality (ESorts.kind sigma eqsort) in
   let goalsort = ESorts.kind sigma goalsort in
   let false_inst = UVars.Instance.(of_array ([|eqqual|], [||])) in
-  let rec findrec posn t1 t2 =
+  let rec findrec posn s t1 t2 =
     let hd1,args1 = whd_all_stack env sigma t1 in
     let hd2,args2 = whd_all_stack env sigma t2 in
+    let ty1 = get_type_of env sigma t1 in
+    let s1 = UnivGen.QualityOrSet.quality @@ get_sort_quality_of env sigma ty1 in
+    let g = Environ.qualities env in
+    let allowed_elim_on_sort = eliminates_to g s s1 in
     match (EConstr.kind sigma hd1, EConstr.kind sigma hd2) with
       | Construct ((ind1,i1 as sp1),u1), Construct (sp2,_)
           when Int.equal (List.length args1) (constructor_nallargs env sp1)
             ->
-          let mind_specif = lookup_mind_specif env ind1 in
+          let (mib,mip) as mind_specif = lookup_mind_specif env ind1 in
           let false_mind_specif = lookup_mind_specif env false_ref in
           let ind_allowed_elim = Inductive.is_allowed_elimination env (mind_specif, EInstance.kind sigma u1) Sorts.type1 in
           let eq_allowed_elim = Inductive.is_allowed_elimination env (false_mind_specif, false_inst) goalsort in
              (* both sides are fully applied constructors, so either we descend,
              or we can discriminate here. *)
-          if Environ.QConstruct.equal env sp1 sp2 then
+          if Environ.QConstruct.equal env sp1 sp2 && allowed_elim_on_sort then
             let nparams = inductive_nparams env ind1 in
             let params1,rargs1 = List.chop nparams args1 in
             let _,rargs2 = List.chop nparams args2 in
-            let (mib,mip) = lookup_mind_specif env ind1 in
             let ctxt = (get_constructor ((ind1,u1),mib,mip,params1) i1).cs_args in
             let adjust i = CVars.adjust_rel_to_rel_context ctxt (i+1) - 1 in
             List.flatten
-              (List.map2_i (fun i -> findrec ((sp1,adjust i)::posn))
+              (List.map2_i (fun i -> findrec ((sp1,adjust i)::posn) s1)
                 0 rargs1 rargs2)
-          else if (ind_allowed_elim && eq_allowed_elim) && not no_discr
+          else if (ind_allowed_elim && eq_allowed_elim && allowed_elim_on_sort) && not no_discr
           then (* see build_discriminator *)
             raise (DiscrFound (List.rev posn, DConstruct (sp1, sp2)))
           else
           (* if we cannot eliminate to Type, we cannot discriminate but we
              may still try to project *)
-          project env posn (applist (hd1,args1)) (applist (hd2,args2))
+          project env posn allowed_elim_on_sort (applist (hd1,args1)) (applist (hd2,args2))
       | Int i1, Int i2 ->
         if Uint63.equal i1 i2 then []
         else raise (DiscrFound (List.rev posn, DInt (i1, i2)))
@@ -943,10 +960,12 @@ let find_positions env sigma ~keep_proofs ~no_discr ~eqsort ~goalsort t1 t2 =
           if is_conv env sigma t1_0 t2_0 then
             []
           else
-            project env posn t1_0 t2_0
+            project env posn allowed_elim_on_sort t1_0 t2_0
   in
   try
-    Inr (findrec [] t1 t2)
+    let ty1 = get_type_of env sigma t1 in
+    let s = UnivGen.QualityOrSet.quality @@ get_sort_quality_of env sigma ty1 in
+    Inr (findrec [] s t1 t2)
   with DiscrFound (path, d) ->
     Inl (path, d)
 
@@ -1137,7 +1156,7 @@ let discrimination_pf e (eq,_,s,(t,t1,t2)) discriminator p_sort =
     let env = Proofview.Goal.env gl in
     let sigma = Proofview.Goal.sigma gl in
     let ((sigma, c),_) = lookup_eq_eliminator_with_error env sigma eq
-      ~dep:false ~inccl:true ~l2r:(Some false)
+      ~dep:false ~inccl:true ~l2r:false
       ~e_sort:s
       ~c_sort:(Retyping.get_sort_of env sigma t)
       ~p_sort in

@@ -72,7 +72,7 @@ let rhs_loc n =
 %token SYNTERP COMMAND CLASSIFIED STATE PRINTED TYPED INTERPRETED GLOBALIZED SUBSTITUTED BY AS
 %token BANGBRACKET HASHBRACKET LBRACKET RBRACKET PIPE ARROW FUN COMMA EQUAL STAR
 %token LPAREN RPAREN COLON SEMICOLON
-%token GLOBAL TOP FIRST LAST BEFORE AFTER LEVEL LEFTA RIGHTA NONA
+%token GLOBAL TOP FIRST LAST BEFORE AFTER LEVEL LEFTA RIGHTA NONA BOTHA
 %token IGNORE KEYWORDS
 %token EOF
 
@@ -160,14 +160,9 @@ glob_printed_opt:
 | GLOB_PRINTED BY CODE { Some $3 }
 ;
 
-interpreted_modifier_opt:
-| { None }
-| LBRACKET IDENT RBRACKET { Some $2 }
-;
-
 interpreted_opt:
 | { None }
-| INTERPRETED interpreted_modifier_opt BY CODE { Some ($2,$4) }
+| INTERPRETED BY CODE { Some $3 }
 ;
 
 globalized_opt:
@@ -381,6 +376,7 @@ assoc:
 | LEFTA { LeftA }
 | RIGHTA { RightA }
 | NONA { NonA }
+| BOTHA { BothA }
 ;
 
 levels:

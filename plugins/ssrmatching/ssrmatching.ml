@@ -102,7 +102,7 @@ let add_genarg tag pr =
   let gen_pr env sigma _ _ _ = pr env sigma in
   let () = Genintern.register_intern0 wit glob in
   let () = Gensubst.register_subst0 wit subst in
-  let () = Geninterp.register_interp0 wit interp in
+  let () = Tacinterp.Register.register_interp0 wit interp in
   let () = Geninterp.register_val0 wit (Some (Geninterp.Val.Base tag)) in
   Pptactic.declare_extra_genarg_pprule wit gen_pr gen_pr gen_pr;
   wit
@@ -1004,7 +1004,7 @@ let pp_pattern env { pat_sigma = sigma; pat_pat = p } =
 type cpattern =
   { kind : ssrtermkind
   ; pattern : Genintern.glob_constr_and_expr
-  ; interpretation : Geninterp.interp_sign option }
+  ; interpretation : Tacinterp.interp_sign option }
 
 let pr_term {kind; pattern; _} =
   let env = Global.env () in
@@ -1461,7 +1461,7 @@ let fill_rel_occ_pattern env sigma cl pat occ =
     try fill_occ_pattern ~raise_NoMatch:true env sigma cl pat occ 1
     with NoMatch -> redex_of_pattern_nf env pat, cl
   in
-  let sigma = Evd.merge_universe_context sigma us in
+  let sigma = Evd.merge_ustate sigma us in
   sigma, e, cl
 
 (* clenup interface for external use *)
@@ -1497,7 +1497,7 @@ let cpattern_of_id id =
   { kind= NoFlag
   ; pattern = DAst.make @@ GRef (GlobRef.VarRef  id, None), None
   ; interpretation =
-      Some Geninterp.({ lfun = Id.Map.empty;
+      Some Tacinterp.({ lfun = Id.Map.empty;
                         poly = PolyFlags.default;
                         extra = Tacinterp.TacStore.empty })}
 

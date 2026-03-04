@@ -63,6 +63,20 @@ type ill_formed_ind =
 
 exception IllFormedInd of ill_formed_ind
 
+type rdecl =
+| Toplevel of wf_paths (* The inductive being checked *)
+| Nesting of wf_paths (* A nested inductive node *)
+| FlatNesting (* Nesting over a non-recursive type *)
+| Other (* No recursion *)
+
+(* In the above type, all wf_paths are guaranteed to be free variables *)
+
+let lift_rdecl = function
+| Toplevel path -> Toplevel (Rtree.lift 1 path)
+| Nesting path -> Nesting (Rtree.lift 1 path)
+| FlatNesting -> FlatNesting
+| Other -> Other
+
 (* [mind_extract_params mie] extracts the params from an inductive types
    declaration, and checks that they are all present (and all the same)
    for all the given types. *)
@@ -152,10 +166,17 @@ if Int.equal nmr 0 then 0 else
      (i.e. range of inductives is [n; n+ntypes-1])
    [lra] is the list of recursive tree of each variable
  *)
-let ienv_push_var (env, n, ntypes, lra) (x,a,ra) =
-  (push_rel (LocalAssum (x,a)) env, n+1, ntypes, (Norec,ra)::lra)
+let ienv_push_var (env, n, ntypes, lra) (x, a) =
+  (push_rel (LocalAssum (x, a)) env, n+1, ntypes, Other :: lra)
 
-let ienv_push_inductive (env, n, ntypes, ra_env) ((mi,u),lrecparams) =
+let is_recursive = function
+| BiFinite -> false
+| Finite | CoFinite -> true
+
+let ienv_push_inductive (env, n, ntypes, ra_env) ((mi, u), lrecparams, finite) =
+  let isrec = is_recursive finite in
+  (* Only non-mutual inductive types are allowed for nesting *)
+  let () = assert (Int.equal (snd mi) 0) in
   let auxntyp = 1 in
   let specif = (lookup_mind_specif env mi, u) in
   let ty = type_of_inductive specif in
@@ -165,8 +186,9 @@ let ienv_push_inductive (env, n, ntypes, ra_env) ((mi,u),lrecparams) =
     let decl = LocalAssum (anon, hnf_prod_applist env ty lrecparams) in
     push_rel decl env in
   let ra_env' =
-    (Mrec (RecArgInd mi),(Rtree.mk_rec_calls 1).(0)) ::
-    List.map (fun (r,t) -> (r,Rtree.lift 1 t)) ra_env in
+    if isrec then Nesting (Rtree.mk_rec_calls 1).(0) :: List.map lift_rdecl ra_env
+    else FlatNesting :: ra_env
+  in
   (* New index of the inductive types *)
   let newidx = n + auxntyp in
   (env', newidx, ntypes, ra_env')
@@ -176,7 +198,7 @@ let rec ienv_decompose_prod (env,_,_,_ as ienv) n c =
     let c' = whd_all env c in
     match kind c' with
         Prod(na,a,b) ->
-          let ienv' = ienv_push_var ienv (na,a,mk_norec) in
+          let ienv' = ienv_push_var ienv (na, a) in
           ienv_decompose_prod ienv' (n-1) b
       | _ -> assert false
 
@@ -195,7 +217,7 @@ let array_min nmr a = if Int.equal nmr 0 then 0 else
     If [chkpos] is [false] then positivity is assumed, and
     [check_positivity_one] computes the subterms occurrences in a
     best-effort fashion. *)
-let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (mind,i as ind) nnonrecargs lcnames indlc =
+let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (_, i as ind) nnonrecargs lcnames indlc =
   let nparamsctxt = Context.Rel.length paramsctxt in
   let nmr = Context.Rel.nhyps paramsctxt in
   (** Positivity of one argument [c] of a constructor (i.e. the
@@ -215,30 +237,32 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
               | None when chkpos ->
                   failwith_non_pos_list n ntypes [b]
               | None ->
-                  check_strict_positivity (ienv_push_var ienv (na, b, mk_norec)) nmr d
+                  check_strict_positivity (ienv_push_var ienv (na, b)) nmr d
               | Some b ->
-                  check_strict_positivity (ienv_push_var ienv (na, b, mk_norec)) nmr d)
+                  check_strict_positivity (ienv_push_var ienv (na, b)) nmr d)
         | Rel k ->
             (match List.nth_opt ra_env (k-1) with
-            | Some (ra,rarg) ->
-            let largs = List.map (whd_all env) largs in
-            let nmr1 =
-              (match ra with
-                (* Are we referring to the original block of mutual inductive types? *)
-                | Mrec (RecArgInd (mind',_)) ->
-                  if Names.MutInd.CanOrd.equal mind mind'
-                  then compute_rec_par ienv paramsctxt nmr largs
-                  else nmr
-                | Norec | Mrec (RecArgPrim _) -> nmr)
-            in
+            | Some rdecl ->
+              let largs = List.map (whd_all env) largs in
               (** The case where one of the inductives of the mutually
                   inductive block occurs as an argument of another is not
                   known to be safe. So Rocq rejects it. *)
               if chkpos &&
                  not (List.for_all (noccur_between n ntypes) largs)
               then failwith_non_pos_list n ntypes largs
-              else (nmr1,rarg)
-            | None -> (nmr,mk_norec))
+              (* Are we referring to the original block of mutual inductive types? *)
+              else begin match rdecl with
+              | Toplevel rarg ->
+                let nmr1 = compute_rec_par ienv paramsctxt nmr largs in
+                (nmr1, rarg)
+              | Nesting rarg -> nmr, rarg
+              | FlatNesting ->
+                (* Nesting on an inductive that is not recursive, the corresponding
+                   variable cannot appear in the body of that type *)
+                assert false
+              | Other -> nmr, mk_norec
+              end
+            | None -> assert false)
         | Ind ind_kn ->
             (** If one of the inductives of the mutually inductive
                 block being defined appears in a parameter, then we
@@ -286,7 +310,7 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
         let auxlcvect = abstract_mind_lc auxntyp auxnrecpar mind mip.mind_nf_lc in
           (* Extends the environment with a variable corresponding to
              the inductive def *)
-        let (env',_,_,_ as ienv') = ienv_push_inductive ienv ((ind,u),auxrecparams) in
+        let (env',_,_,_ as ienv') = ienv_push_inductive ienv ((ind, u), auxrecparams, mib.mind_finite) in
           (* Parameters expressed in env' *)
         let auxrecparams' = List.map (lift auxntyp) auxrecparams in
         let irecargs_nmr =
@@ -306,16 +330,21 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
         let irecargs = Array.map snd irecargs_nmr
         and nmr' = array_min nmr irecargs_nmr
         in
-          (nmr',(Rtree.mk_rec [|mk_paths (Mrec (RecArgInd ind)) irecargs|]).(0))
+        let rtree =
+          if is_recursive mib.mind_finite then
+            (Rtree.mk_rec [|mk_paths (Mrec (RecArgInd ind)) irecargs|]).(0)
+          else mk_paths (Mrec (RecArgInd ind)) irecargs
+        in
+        (nmr', rtree)
 
   and check_positivity_nested_primitive (env,n,ntypes,ra_env) nmr (c, largs) =
     (* We model the primitive type c X1 ... Xn as if it had one constructor
        C : X1 -> ... -> Xn -> c X1 ... Xn
        The subterm relation is defined for each primitive in `inductive.ml`. *)
-    let ra_env = List.map (fun (r,t) -> (r,Rtree.lift 1 t)) ra_env in
     let ienv = (env,n,ntypes,ra_env) in
     let nmr',recargs = List.fold_left_map (check_strict_positivity ienv) nmr largs in
-    (nmr', (Rtree.mk_rec [| mk_paths (Mrec (RecArgPrim c)) [| recargs |] |]).(0))
+    (* Arrays are not recursive types, [mk_node] suffices *)
+    (nmr', mk_paths (Mrec (RecArgPrim c)) [| recargs |])
 
   (** [check_constructors ienv check_head nmr c] checks the positivity
       condition in the type [c] of a constructor (i.e. that recursive
@@ -335,7 +364,7 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
               if not recursive && not (noccur_between n ntypes b) then
                 raise (InductiveError (env,Type_errors.BadEntry));
               let nmr',recarg = check_strict_positivity ienv nmr b in
-              let ienv' = ienv_push_var ienv (na,b,mk_norec) in
+              let ienv' = ienv_push_var ienv (na, b) in
                 check_constr_rec ienv' nmr' (recarg::lrec) d
           | hd ->
             let () =
@@ -375,15 +404,14 @@ let check_positivity_one ~chkpos recursive (env,_,ntypes,_ as ienv) paramsctxt (
     best-effort fashion. *)
 let check_positivity ~chkpos kn names env_ar_par paramsctxt finite inds =
   let ntypes = Array.length inds in
-  let recursive = finite != BiFinite in
+  let recursive = is_recursive finite in
   if not recursive && Array.length inds <> 1 then raise (InductiveError (env_ar_par,Type_errors.BadEntry));
-  let rc = Array.mapi (fun j t -> (Mrec (RecArgInd (kn,j)),t)) (Rtree.mk_rec_calls ntypes) in
+  let rc = Array.map (fun t -> Toplevel t) (Rtree.mk_rec_calls ntypes) in
   let ra_env_ar = Array.rev_to_list rc in
   let nparamsctxt = Context.Rel.length paramsctxt in
   let nmr = Context.Rel.nhyps paramsctxt in
   let check_one i (_,lcnames) (nindices,lc) =
-    let ra_env_ar_par =
-      List.init nparamsctxt (fun _ -> (Norec,mk_norec)) @ ra_env_ar in
+    let ra_env_ar_par = List.init nparamsctxt (fun _ -> Other) @ ra_env_ar in
     let ienv = (env_ar_par, 1+nparamsctxt, ntypes, ra_env_ar_par) in
     check_positivity_one ~chkpos recursive ienv paramsctxt (kn,i) nindices lcnames lc
   in

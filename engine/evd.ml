@@ -822,7 +822,8 @@ let evar_handler sigma =
     in
     { cb with const_body = drop_opaque cb.const_body; const_body_code = drop_code cb.const_body_code }
   in
-  { CClosure.evar_expand; evar_irrelevant; evar_repack; qvar_irrelevant; abstr_const }
+  let qual_equal q1 q2 = UState.check_eq_quality sigma.universes q1 q2 in
+  { CClosure.evar_expand; evar_irrelevant; evar_repack; qvar_irrelevant; qual_equal; abstr_const }
 
 let existential_type_opt d (n, args) =
   match find_undefined d n with
@@ -903,8 +904,10 @@ let has_given_up evd = not (Evar.Set.is_empty evd.given_up)
 
 let has_shelved evd = not (List.for_all List.is_empty evd.shelf)
 
-let merge_universe_context evd uctx' =
+let merge_ustate evd uctx' =
   { evd with universes = UState.union evd.universes uctx' }
+
+let merge_universe_context = merge_ustate
 
 let set_universe_context evd uctx' =
   { evd with universes = uctx' }
@@ -1006,8 +1009,6 @@ let ustate d = d.universes
 
 let elim_graph d = UState.elim_graph d.universes
 
-let evar_universe_context d = ustate d
-
 let universe_context_set d = UState.universe_context_set d.universes
 
 let sort_context_set d = UState.sort_context_set d.universes
@@ -1030,7 +1031,7 @@ let check_univ_decl_early ~poly ~with_obls sigma udecl terms =
   in
   let vars = List.fold_left (fun acc b -> Univ.Level.Set.union acc (Vars.universes_of_constr b)) Univ.Level.Set.empty terms in
   let uctx = ustate sigma in
-  let uctx = UState.collapse_sort_variables uctx in
+  let uctx = UState.collapse_sort_variables ~to_type:(PolyFlags.collapse_sort_variables poly) uctx in
   let uctx = UState.restrict uctx vars in
   ignore (UState.check_univ_decl ~poly uctx udecl)
 
@@ -1041,30 +1042,34 @@ let universe_subst evd =
   UState.subst evd.universes
 
 let merge_universe_context_set ?loc ?(sideff=false) rigid evd uctx' =
-  {evd with universes = UState.merge_universe_context ?loc ~sideff rigid evd.universes uctx'}
+  {evd with universes = UState.merge_universe_context_set ?loc ~sideff rigid evd.universes uctx'}
 
-let merge_sort_context_set ?loc ?(sideff=false) ?src rigid evd ctx' =
-  {evd with universes = UState.merge_sort_context ?loc ~sideff rigid ?src evd.universes ctx'}
+let merge_sort_context_set ?loc ?sort_rigid ?(sideff=false) ?src rigid evd ctx' =
+  {evd with universes = UState.merge_sort_context_set ?loc ?sort_rigid ~sideff rigid ?src evd.universes ctx'}
 
-let with_sort_context_set ?loc ?src rigid d (a, ctx) =
-  (merge_sort_context_set ?loc ?src rigid d ctx, a)
+let with_sort_context_set ?loc ?sort_rigid ?src rigid d (a, ctx) =
+  (merge_sort_context_set ?loc ?sort_rigid ?src rigid d ctx, a)
 
 let new_univ_level_variable ?loc ?name rigid evd =
-  let uctx', u = UState.new_univ_variable ?loc rigid name evd.universes in
+  let uctx', u = UState.new_univ_level_variable ?loc rigid name evd.universes in
     ({evd with universes = uctx'}, u)
 
 let new_univ_variable ?loc ?name rigid evd =
-  let uctx', u = UState.new_univ_variable ?loc rigid name evd.universes in
-    ({evd with universes = uctx'}, Univ.Universe.make u)
+  let evd, u = new_univ_level_variable ?loc ?name rigid evd in
+  evd, Univ.Universe.make u
 
 let new_quality_variable ?loc ?name evd =
-  let uctx, q = UState.new_sort_variable ?loc ?name evd.universes in
+  let uctx, q = UState.new_quality_variable ?loc ?name evd.universes in
   {evd with universes = uctx}, q
 
-let new_sort_variable ?loc rigid sigma =
+let new_sort_info ?loc ?sort_rigid ?name rigid sigma =
   let (sigma, u) = new_univ_variable ?loc rigid sigma in
-  let uctx, q = UState.new_sort_variable sigma.universes in
-  ({ sigma with universes = uctx }, Sorts.qsort q u)
+  let uctx, q = UState.new_quality_variable ?sort_rigid ?name sigma.universes in
+  ({ sigma with universes = uctx }, q, u)
+
+let new_sort_variable ?loc ?sort_rigid ?name rigid sigma =
+  let sigma, q, u = new_sort_info ?loc ?sort_rigid ?name rigid sigma in
+  sigma, Sorts.qsort q u
 
 let add_forgotten_univ d u =
   { d with universes = UState.add_forgotten_univ d.universes u }
@@ -1109,8 +1114,8 @@ let fresh_constant_instance ?loc ?(rigid=univ_flexible) env evd c =
   let (u, ctx) = fresh_instance env evd (GlobRef.ConstRef c) in
   with_sort_context_set ?loc rigid ~src:UState.Internal evd ((c, u), ctx)
 
-let fresh_inductive_instance ?loc ?(rigid=univ_flexible) env evd i =
-  with_sort_context_set ?loc rigid ~src:UState.Internal evd (UnivGen.fresh_inductive_instance env i)
+let fresh_inductive_instance ?loc ?sort_rigid ?(rigid=univ_flexible) env evd i =
+  with_sort_context_set ?loc ?sort_rigid rigid ~src:UState.Internal evd (UnivGen.fresh_inductive_instance env i)
 
 let fresh_constructor_instance ?loc ?(rigid=univ_flexible) env evd c =
   with_sort_context_set ?loc rigid ~src:UState.Internal evd (UnivGen.fresh_constructor_instance env c)
@@ -1142,11 +1147,9 @@ let set_eq_sort evd s1 s2 =
   match is_eq_sort s1 s2 with
   | None -> evd
   | Some (u1, u2) ->
-    if not (UGraph.type_in_type (UState.ugraph evd.universes)) then
-      add_constraints evd
-        (UnivProblem.Set.singleton (UnivProblem.UEq (u1,u2)))
-    else
-      evd
+    if QGraph.ignore_constraints (UState.elim_graph evd.universes) then evd else
+    add_constraints evd
+      (UnivProblem.Set.singleton (UnivProblem.UEq (u1,u2)))
 
 let set_eq_level d u1 u2 =
   add_univ_constraints d (Univ.enforce_eq_level u1 u2 Univ.UnivConstraints.empty)
@@ -1164,10 +1167,8 @@ let set_leq_sort evd s1 s2 =
   match is_eq_sort s1 s2 with
   | None -> evd
   | Some (u1, u2) ->
-     if not (UGraph.type_in_type (UState.ugraph evd.universes)) then
-       add_constraints evd @@
-         UnivProblem.Set.singleton (UnivProblem.ULe (u1,u2))
-     else evd
+    add_constraints evd @@
+      UnivProblem.Set.singleton (UnivProblem.ULe (u1,u2))
 
 let set_eq_qualities evd q1 q2 =
   add_constraints evd @@ UnivProblem.Set.singleton (QEq (q1, q2))
@@ -1180,16 +1181,14 @@ let set_elim_to evd q1 q2 =
   add_constraints evd @@ UnivProblem.Set.singleton (QElimTo (q1, q2))
 
 let check_eq evd s s' =
-  let quals = elim_graph evd in
   let ustate = evd.universes in
   let univs = UState.ugraph ustate in
-  UGraph.check_eq_sort quals univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
+  UGraph.check_eq_sort Sorts.Quality.equal univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
 
 let check_leq evd s s' =
-  let quals = elim_graph evd in
   let ustate = evd.universes in
   let univs = UState.ugraph ustate in
-  UGraph.check_leq_sort quals univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
+  UGraph.check_leq_sort Sorts.Quality.equal univs (UState.nf_sort ustate s) (UState.nf_sort ustate s')
 
 let check_univ_constraints evd csts =
   UGraph.check_constraints csts (UState.ugraph evd.universes)
@@ -1200,6 +1199,11 @@ let check_elim_constraints evd csts =
 let check_poly_constraints evd (qcsts,ucsts) =
   check_elim_constraints evd qcsts && check_univ_constraints evd ucsts
 
+let check_quality_constraints evd qcst =
+  let fold (q1, q2) accu = UnivProblem.Set.add (UnivProblem.QEq (q1, q2)) accu in
+  let qcst = UVars.QPairSet.fold fold qcst UnivProblem.Set.empty in
+  UState.check_constraints evd.universes qcst
+
 let fix_undefined_variables evd =
   { evd with universes = UState.fix_undefined_variables evd.universes }
 
@@ -1207,13 +1211,13 @@ let nf_univ_variables evd =
   let uctx = UState.normalize_variables evd.universes in
   {evd with universes = uctx}
 
-let collapse_sort_variables ?except evd =
-  let universes = UState.collapse_sort_variables ?except evd.universes in
+let collapse_sort_variables ?except ?(to_type = true) evd =
+  let universes = UState.collapse_sort_variables ?except ~to_type evd.universes in
   { evd with universes }
 
-let minimize_universes ?(collapse_sort_variables=true) evd =
+let minimize_universes ?(collapse_sort_variables=true) ?(to_type = true) evd =
   let uctx' = if collapse_sort_variables
-    then UState.collapse_sort_variables evd.universes
+    then UState.collapse_sort_variables ~to_type evd.universes
     else evd.universes
   in
   let uctx' = UState.normalize_variables uctx' in
@@ -1467,7 +1471,7 @@ let set_extra_data extras evd = { evd with extras }
 (*******************************************************************)
 (* The state monad with state an evar map. *)
 
-module MonadR =
+module Monad =
   Monad.Make (struct
 
     type +'a t = evar_map -> evar_map * 'a
@@ -1484,26 +1488,6 @@ module MonadR =
 
     let map f x = fun s ->
       on_snd f (x s)
-
-  end)
-
-module Monad =
-  Monad.Make (struct
-
-    type +'a t = evar_map -> 'a * evar_map
-
-    let return a = fun s -> (a,s)
-
-    let (>>=) x f = fun s ->
-      let (a,s') = x s in
-      f a s'
-
-    let (>>) x y = fun s ->
-      let ((),s') = x s in
-      y s'
-
-    let map f x = fun s ->
-      on_fst f (x s)
 
   end)
 

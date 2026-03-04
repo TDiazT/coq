@@ -32,8 +32,8 @@ let create_clos_infos env sigma flags =
 (* Expanding/testing/exposing existential variables *)
 (****************************************************)
 
-let finalize ?abort_on_undefined_evars sigma f =
-  let sigma = minimize_universes sigma in
+let finalize ?abort_on_undefined_evars ?(to_type = true) sigma f =
+  let sigma = minimize_universes ~to_type sigma in
   let uvars = ref Univ.Level.Set.empty in
   let nf_constr c =
     let _, varsc = EConstr.universes_of_constr sigma c in
@@ -816,7 +816,8 @@ let eq_constr_univs_test ~evd ~extended_evd t u =
   let eq_universes _ u1 u2 =
     let u1 = EConstr.EInstance.(kind !sigma (make u1)) in
     let u2 = EConstr.EInstance.(kind !sigma (make u2)) in
-    UGraph.check_eq_instances (elim_graph !sigma) (universes !sigma) u1 u2
+    let check_qeq q1 q2 = UState.check_eq_quality (Evd.ustate !sigma) q1 q2 in
+    UGraph.check_eq_instances check_qeq (universes !sigma) u1 u2
   in
   let eq_sorts s1 s2 =
     if Sorts.equal s1 s2 then true

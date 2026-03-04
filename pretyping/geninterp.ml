@@ -8,10 +8,7 @@
 (*         *     (see LICENSE file for the text of the license)         *)
 (************************************************************************)
 
-open Names
 open Genarg
-
-module TacStore = Store.Make ()
 
 (** Dynamic toplevel values *)
 
@@ -79,27 +76,3 @@ let register_val0 wit tag =
   | Some tag -> tag
   in
   ValRepr.register0 wit tag
-
-(** Interpretation functions *)
-
-type interp_sign =
-  { lfun : Val.t Id.Map.t
-  ; poly : PolyFlags.t
-  ; extra : TacStore.t }
-
-type ('glb, 'top) interp_fun = interp_sign -> 'glb -> 'top Ftactic.t
-
-module InterpObj =
-struct
-  type ('raw, 'glb, 'top) obj = ('glb, Val.t) interp_fun
-  let name = "interp"
-  let default _ = None
-end
-
-module Interp = Register(InterpObj)
-
-let interp = Interp.obj
-
-let generic_interp ist (GenArg (Glbwit wit, v)) = interp wit ist v
-
-let register_interp0 = Interp.register0

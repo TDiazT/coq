@@ -144,6 +144,8 @@ val check_elim_constraints : t -> ElimConstraints.t -> bool
 
 val check_constraints : t -> UnivProblem.Set.t -> bool
 
+val check_eq_quality : t -> Sorts.Quality.t -> Sorts.Quality.t -> bool
+
 (** {5 Names} *)
 
 val quality_of_name : t -> Id.t -> Sorts.QVar.t
@@ -185,8 +187,9 @@ val univ_rigid : rigid
 val univ_flexible : rigid
 val univ_flexible_alg : rigid
 
-val merge_sort_context : ?loc:Loc.t -> ?src:constraint_source -> sideff:bool -> rigid -> t -> UnivGen.sort_context_set -> t
-val merge_universe_context : ?loc:Loc.t -> sideff:bool -> rigid -> t -> Univ.ContextSet.t -> t
+val merge_sort_context_set : ?loc:Loc.t -> ?sort_rigid:bool -> ?src:constraint_source ->
+    sideff:bool -> rigid -> t -> UnivGen.sort_context_set -> t
+val merge_universe_context_set : ?loc:Loc.t -> sideff:bool -> rigid -> t -> Univ.ContextSet.t -> t
 
 val demote_global_univs : Univ.ContextSet.t -> t -> t
 (** After declaring global universes, call this if you want to keep using the UState.
@@ -210,10 +213,10 @@ val demote_global_univ_entry : universes_entry -> t -> t
 val emit_side_effects : Safe_typing.private_constants -> t -> t
 (** Calls [demote_global_univs] for the private constant universes. *)
 
-val new_sort_variable : ?loc:Loc.t -> ?name:Id.t -> t -> t * QVar.t
+val new_quality_variable : ?loc:Loc.t -> ?sort_rigid:bool -> ?name:Id.t -> t -> t * QVar.t
 (** Declare a new local sort. *)
 
-val new_univ_variable : ?loc:Loc.t -> rigid -> Id.t option -> t -> t * Univ.Level.t
+val new_univ_level_variable : ?loc:Loc.t -> rigid -> Id.t option -> t -> t * Univ.Level.t
 (** Declare a new local universe; use rigid if a global or bound
     universe; use flexible for a universe existential variable; use
     univ_flexible_alg for a universe existential variable allowed to
@@ -240,7 +243,7 @@ val minimize : t -> t
 
 val collapse_above_prop_sort_variables : to_prop:bool -> t -> t
 
-val collapse_sort_variables : ?except:QVar.Set.t -> t -> t
+val collapse_sort_variables : ?except:QVar.Set.t -> ?to_type:bool -> t -> t
 
 type ('a, 'b, 'c, 'd) gen_universe_decl = {
   univdecl_qualities : 'a;

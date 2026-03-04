@@ -695,7 +695,8 @@ let push_section_context uctx senv =
     Sorts.QVar.is_global q &&
     not (QGraph.is_declared (Sorts.Quality.QVar q) (Environ.qualities senv.env))
   in
-  let () = assert (Sorts.QVar.Set.for_all check_quality (fst qctx)) in
+  if not @@ Sorts.QVar.Set.for_all check_quality (fst qctx) then
+    CErrors.user_err Pp.(str "Implicit section-wide sort variables and elimination constraints are not allowed.");
   let check_fresh u = match UGraph.check_declared_universes (Environ.universes senv.env) (Univ.Level.Set.singleton u) with
   | Result.Ok _ -> assert false
   | Result.Error _ -> ()
@@ -1268,7 +1269,7 @@ let add_mind ?typing_flags l mie senv =
 (** Insertion of module types *)
 
 let check_state senv =
-  ((Environ.qualities senv.env, Environ.universes senv.env), Conversion.checked_universes)
+  (Environ.universes senv.env, Conversion.checked_universes)
 
 let vm_handler env univs c vmtab =
   let env = Environ.set_vm_library vmtab env in
@@ -1495,7 +1496,7 @@ let add_include me is_module inl senv =
       let state = check_state senv in
       (* Module subcomponents are already part of senv.env at this point *)
       let env = Environ.shallow_add_module mp_sup mb senv.env in
-      let (_ : QGraph.t * UGraph.t) = Subtyping.check_subtypes state env mp_sup (MPbound mbid) mtb in
+      let (_ : UGraph.t) = Subtyping.check_subtypes state env mp_sup (MPbound mbid) mtb in
       let mpsup_delta =
         Modops.inline_delta_resolver senv.env inl mp_sup mbid mtb senv.modresolver
       in

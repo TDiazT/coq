@@ -113,6 +113,12 @@ val of_fun2 : (valexpr -> 'a) -> (valexpr -> 'b) -> ('c -> valexpr) -> ('a, 'b, 
 val to_fun2 : ('a -> valexpr) -> ('b -> valexpr) -> (valexpr -> 'c) -> valexpr -> ('a, 'b, 'c) fun2
 val fun2 : 'a repr -> 'b repr -> 'c repr -> ('a, 'b, 'c) fun2 repr
 
+type ('a, 'b, 'c, 'd) fun3 = 'a -> 'b -> 'c -> 'd Proofview.tactic
+
+val of_fun3 : (valexpr -> 'a) -> (valexpr -> 'b) -> (valexpr -> 'c) -> ('d -> valexpr) -> ('a, 'b, 'c, 'd) fun3 -> valexpr
+val to_fun3 : ('a -> valexpr) -> ('b -> valexpr) -> ('c -> valexpr) -> (valexpr -> 'd) -> valexpr -> ('a, 'b, 'c, 'd) fun3
+val fun3 : 'a repr -> 'b repr -> 'c repr -> 'd repr -> ('a, 'b, 'c, 'd) fun3 repr
+
 val of_block : (int * valexpr array) -> valexpr
 val to_block : valexpr -> (int * valexpr array)
 val block : (int * valexpr array) repr
@@ -215,6 +221,21 @@ val instance : EConstr.EInstance.t repr
 val of_reference : GlobRef.t -> valexpr
 val to_reference : valexpr -> GlobRef.t
 val reference : GlobRef.t repr
+
+val of_modpath : ModPath.t -> valexpr
+val to_modpath : valexpr -> ModPath.t
+val modpath : ModPath.t repr
+
+module ModField : sig
+  type t =
+    | Ref of GlobRef.t
+    | Submodule of ModPath.t
+    | Rewrule
+end
+
+val of_module_field : ModField.t -> valexpr
+val to_module_field : valexpr -> ModField.t
+val module_field : ModField.t repr
 
 val of_ext : 'a Val.tag -> 'a -> valexpr
 val to_ext : 'a Val.tag -> valexpr -> 'a

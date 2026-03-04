@@ -16,8 +16,7 @@ open Glob_term
 (** [notation_constr] is the subtype of [glob_constr] allowed in syntactic
     extensions (i.e. notations).
     No location since intended to be substituted at any place of a text.
-    Complex expressions such as fixpoints and cofixpoints are excluded,
-    as well as non global expressions such as existential variables. *)
+    Non global expressions such as existential variables are not allowed. *)
 
 type notation_constr =
   (* Part common to [glob_constr] and [cases_pattern] *)
@@ -26,7 +25,7 @@ type notation_constr =
   | NApp of notation_constr * notation_constr list
   | NProj of (Constant.t * glob_instance option) * notation_constr list * notation_constr
   | NHole of glob_evar_kind
-  | NGenarg of Genarg.glob_generic_argument
+  | NGenarg of GenConstr.glb
   | NList of Id.t * Id.t * notation_constr * notation_constr * (* associativity: *) bool
   (* Part only in [glob_constr] *)
   | NLambda of Name.t * notation_constr option * notation_constr

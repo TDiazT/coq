@@ -813,6 +813,29 @@ let expand_table_key ~metas ts env sigma args = function
         let def = EConstr.Unsafe.to_constr def in
         let unf = unfold_projection_under_eta env ts c def in
         Some (EConstr.of_constr @@ Option.default def unf, args)
+        | exception NotEvaluableConst (IsPrimitive (u, op)) ->
+          let nargs = CPrimitives.arity op in
+          begin match Array.chop nargs args with
+          | (args, appl) ->
+            let args_red = Array.of_list @@ CPrimitives.kind op in
+            assert (Array.length args_red <= Array.length args);
+            let args =
+              let open CPrimitives in
+              let red arg = function
+                | Kparam | Karg -> arg
+                | Kwhnf ->
+                  let flags = RedFlags.all in
+                  let flags = RedFlags.red_add_transparent flags ts in
+                  Reductionops.clos_whd_flags flags env sigma arg
+              in
+              Array.map2 red args args_red
+            in
+            begin match CredNative.(red_prim env sigma op (EInstance.make u) args) with
+              | Some v -> Some (v, appl)
+              | None -> None
+              end
+            | exception Failure _ -> None
+          end
         | exception NotEvaluableConst (HasRules (u, b, r)) ->
         begin try
           let metas = Meta.meta_handler metas in
@@ -2416,7 +2439,7 @@ let fast_head_check sigma knd c = match EConstr.kind sigma c, knd with
 (* Tries to find an instance of term [cl] in term [op].
    Unifies [cl] to every subterm of [op] until it finds a match.
    Fails if no match is found *)
-let w_unify_to_subterm ~metas env evd ?(flags=default_unify_flags ()) (op,cl) =
+let w_unify_to_subterm ~metas env evd ?where ?(flags=default_unify_flags ()) (op,cl) =
   let bestexn = ref None in
   let kop = Keys.constr_key env (fun c -> EConstr.kind evd c) op in
   let opgnd = if occur_meta_or_undefined_evar evd op then NotGround else Ground in
@@ -2478,7 +2501,7 @@ let w_unify_to_subterm ~metas env evd ?(flags=default_unify_flags ()) (op,cl) =
   | Some ans -> ans
   | None ->
     match !bestexn with
-    | None -> raise (PretypeError (env,evd,NoOccurrenceFound (op, None)))
+    | None -> raise (PretypeError (env,evd,NoOccurrenceFound (op, where)))
     | Some e -> raise e
 
 (* Tries to find all instances of term [cl] in term [op].
@@ -2606,8 +2629,8 @@ let w_unify_to_subterm_list ~metas env evd flags hdmeta oplist t =
     oplist
     (metas,evd,[])
 
-let w_unify_to_subterm env sigma ?flags (c, t) =
-  w_unify_to_subterm env sigma ?flags (c, AConstr.make sigma t)
+let w_unify_to_subterm env sigma ?where ?flags (c, t) =
+  w_unify_to_subterm env sigma ?where ?flags (c, AConstr.make sigma t)
 
 let secondOrderAbstraction ~metas env evd flags typ (p, oplist) =
   (* Remove delta when looking for a subterm *)
@@ -2703,8 +2726,8 @@ let w_unify ~metas env evd cv_pb ?(flags=default_unify_flags ()) ty1 ty2 =
 let w_unify ?(metas = Metamap.empty) env evd cv_pb ?(flags=default_unify_flags ()) ty1 ty2 =
   w_unify ~metas env evd cv_pb ~flags ty1 ty2
 
-let w_unify_to_subterm ?(metas = Metamap.empty) env evd ?flags arg =
-  w_unify_to_subterm ~metas env evd ?flags arg
+let w_unify_to_subterm ?(metas = Metamap.empty) env evd ?where ?flags arg =
+  w_unify_to_subterm ~metas env evd ?where ?flags arg
 
 let w_unify_to_subterm_all ?(metas = Metamap.empty) env evd ?flags arg =
   w_unify_to_subterm_all ~metas env evd ?flags arg

@@ -220,14 +220,20 @@ let lookup_constant_opt kn env =
   | None -> None
   | Some (cb, _, _) -> Some cb
 
-let lookup_constant_key kn env =
-  match Cmap_env.find_opt kn env.env_constants with
-  | Some v -> v
-  | None ->
-    anomaly Pp.(str "Constant " ++ Constant.print kn ++ str" does not appear in the environment.")
+let missing_constant kn =
+  anomaly Pp.(str "Constant " ++ Constant.print kn ++ str" does not appear in the environment.")
 
-let lookup_constant kn env =
-  pi1 (lookup_constant_key kn env)
+let lookup_constant_key kn env = match Cmap_env.find_opt kn env.env_constants with
+| None -> missing_constant kn
+| Some (_, key, _) -> key
+
+let lookup_constant kn env = match Cmap_env.find_opt kn env.env_constants with
+| None -> missing_constant kn
+| Some (cb, _, _) -> cb
+
+let lookup_constant_canonical kn env = match Cmap_env.find_opt kn env.env_constants with
+| None -> missing_constant kn
+| Some (_, _, can) -> can
 
 let mem_constant kn env = Cmap_env.mem kn env.env_constants
 
@@ -245,14 +251,21 @@ let lookup_rewrite_rules cst env =
   Cmap_env.find cst env.symb_pats
 
 (* Mutual Inductives *)
-let lookup_mind_key kn env =
-  match Mindmap_env.find_opt kn env.env_inductives with
-  | Some v -> v
-  | None ->
-    anomaly Pp.(str "Inductive " ++ MutInd.print kn ++ str" does not appear in the environment.")
 
-let lookup_mind kn env =
-  pi1 (lookup_mind_key kn env)
+let missing_ind kn =
+  anomaly Pp.(str "Inductive " ++ MutInd.print kn ++ str" does not appear in the environment.")
+
+let lookup_mind kn env = match Mindmap_env.find_opt kn env.env_inductives with
+| None -> missing_ind kn
+| Some (mib, _, _) -> mib
+
+let lookup_mind_key kn env = match Mindmap_env.find_opt kn env.env_inductives with
+| None -> missing_ind kn
+| Some (_, key, _) -> key
+
+let lookup_mind_canonical kn env = match Mindmap_env.find_opt kn env.env_inductives with
+| None -> missing_ind kn
+| Some (_, _, can) -> can
 
 let ind_relevance kn env = match Indmap_env.find_opt kn env.irr_inds with
 | None -> Sorts.Relevant
@@ -336,6 +349,7 @@ let is_impredicative_sort env = function
   | Sorts.Type _ | Sorts.QSort _ -> false
 
 let type_in_type env = not (typing_flags env).check_universes
+let ignore_elim_constraints env = not (typing_flags env).check_eliminations
 let deactivated_guard env = not (typing_flags env).check_guarded
 
 let indices_matter env = env.env_typing_flags.indices_matter
@@ -530,6 +544,7 @@ let same_flags {
      check_guarded;
      check_positive;
      check_universes;
+     check_eliminations;
      conv_oracle;
      indices_matter;
      share_reduction;
@@ -542,6 +557,7 @@ let same_flags {
   check_guarded == alt.check_guarded &&
   check_positive == alt.check_positive &&
   check_universes == alt.check_universes &&
+  check_eliminations == alt.check_eliminations &&
   conv_oracle == alt.conv_oracle &&
   indices_matter == alt.indices_matter &&
   share_reduction == alt.share_reduction &&
@@ -559,6 +575,7 @@ let set_typing_flags c env =
   else
     let env = { env with env_typing_flags = c } in
     let env = set_type_in_type (not c.check_universes) env in
+    let env = { env with env_qualities = QGraph.set_ignore_constraints (not c.check_eliminations) env.env_qualities } in
     env
 
 let update_typing_flags ?typing_flags env =
@@ -970,6 +987,9 @@ let is_type_in_type env r =
   | IndRef ind -> type_in_type_ind ind env
   | ConstructRef cstr -> type_in_type_ind (inductive_of_constructor cstr) env
 
+let ind_ignores_elim_constraints env (mind, _) =
+  not (lookup_mind mind env).mind_typing_flags.check_eliminations
+
 let vm_library env = env.vm_library
 
 let set_vm_library lib env =
@@ -1084,8 +1104,8 @@ module Internal = struct
   module View =
   struct
     type t = {
-      env_constants : constant_key Cmap_env.t;
-      env_inductives : mind_key Mindmap_env.t;
+      env_constants : constant_body Cmap_env.t;
+      env_inductives : mutual_inductive_body Mindmap_env.t;
       env_modules : module_body ModPath.Map.t;
       env_modtypes : module_type_body ModPath.Map.t;
       env_named_context : named_context_val;
@@ -1097,8 +1117,8 @@ module Internal = struct
     }
 
     let view (env : env) = {
-      env_constants = env.env_constants;
-      env_inductives = env.env_inductives;
+      env_constants = Cmap_env.map (fun (cb, _, _) -> cb) env.env_constants;
+      env_inductives = Mindmap_env.map (fun (mib, _, _) -> mib) env.env_inductives;
       env_modtypes = env.env_modtypes;
       env_modules = env.env_modules;
       env_named_context = env.env_named_context;
@@ -1108,6 +1128,8 @@ module Internal = struct
       env_symb_pats = env.symb_pats;
       env_typing_flags = env.env_typing_flags;
     } [@@ocaml.warning "-42"]
+    (* It does not matter that this is linear in the size of the environment
+       since we only use for serialization purposes, which is already linear. *)
 
   end
 

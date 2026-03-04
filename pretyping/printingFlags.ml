@@ -94,6 +94,9 @@ let { Goptions.get = print_relevances } =
     ~value:false
     ()
 
+(* detyping *)
+let always_print_regular_match_style = make_flag ["Printing";"Regular";"Matches"] false
+
 (* detyping.ml but extern time *)
 let { Goptions.get = print_factorize_match_patterns } =
   Goptions.declare_bool_option_and_ref
@@ -159,6 +162,11 @@ let { Goptions.get = print_float } =
     ~key:["Printing";"Float"]
     ~value:true
     ()
+
+(* extern (option handled by topfmt) *)
+let extern_depth = ref None
+let set_extern_depth d = extern_depth := d
+let extern_depth() = !extern_depth
 
 module PrintingInductiveMake (Test : sig
     val encode : Environ.env -> Libnames.qualid -> Names.inductive
@@ -248,9 +256,9 @@ module Detype = struct
     primproj_params = print_primproj_params();
     unfolded_primproj_as_match = print_unfolded_primproj_asmatch();
     match_paramunivs = print_match_paramunivs();
+    always_regular_match_style = !always_print_regular_match_style;
 
     (* not yet exposed (except through Printing All) *)
-    always_regular_match_style = false;
     nonpropositional_letin_types = false;
   }
 
@@ -336,7 +344,7 @@ module Extern = struct
     projections : bool;
     float : bool;
     factorize_eqns : FactorizeEqns.t;
-    (* XXX depth? *)
+    depth : int option;
   }
 
   let current_ignore_raw () = {
@@ -352,6 +360,7 @@ module Extern = struct
     projections = !print_projections;
     float = print_float();
     factorize_eqns = FactorizeEqns.current_ignore_raw();
+    depth = extern_depth();
   }
 
   let make_raw flags = {

@@ -64,7 +64,6 @@ type coqargs_config = {
   native_include_dirs : CUnix.physical_path list;
   output_directory : CUnix.physical_path option;
   exclude_dirs : CUnix.physical_path list;
-  beautify : bool;
   quiet : bool;
   time : time_config option;
   test_mode : bool;
@@ -86,7 +85,7 @@ type coqargs_pre = {
   ml_includes : string list;
   vo_includes : vo_path list;
 
-  load_vernacular_list : (string * bool) list;
+  load_vernacular_list : string list;
   injections  : injection_command list;
 }
 
@@ -127,7 +126,6 @@ let default_config = {
   native_include_dirs = [];
   output_directory = None;
   exclude_dirs = [];
-  beautify = false;
   quiet = false;
   time = None;
   test_mode = false;
@@ -173,8 +171,8 @@ let add_vo_include opts unix_path rocq_path implicit =
 let add_vo_require opts d ?(allow_failure=false) p export =
   { opts with pre = { opts.pre with injections = RequireInjection {lib=d; prefix=p; export; allow_failure} :: opts.pre.injections }}
 
-let add_load_vernacular opts verb s =
-    { opts with pre = { opts.pre with load_vernacular_list = (CUnix.make_suffix s ".v",verb) :: opts.pre.load_vernacular_list }}
+let add_load_vernacular opts s =
+    { opts with pre = { opts.pre with load_vernacular_list = (CUnix.make_suffix s ".v") :: opts.pre.load_vernacular_list }}
 
 let add_set_option opts opt_name value =
   { opts with pre = { opts.pre with injections = OptionInjection (opt_name, value) :: opts.pre.injections }}
@@ -301,10 +299,7 @@ let parse_args ~init arglist : t * string list =
       { oval with config = { oval.config with rcfile = Some (next ()); }}
 
     |"-load-vernac-source"|"-l" ->
-      add_load_vernacular oval false (next ())
-
-    |"-load-vernac-source-verbose"|"-lv" ->
-      add_load_vernacular oval true (next ())
+      add_load_vernacular oval (next ())
 
     |"-mangle-names" ->
       let oval = add_set_option oval ["Mangle"; "Names"] (OptionSet None) in
@@ -379,7 +374,6 @@ let parse_args ~init arglist : t * string list =
 
     (* Options with zero arg *)
     |"-test-mode" -> { oval with config = { oval.config with test_mode = true } }
-    |"-beautify" -> { oval with config = { oval.config with beautify = true } }
     |"-config"|"--config" -> set_query oval PrintConfig
 
     |"-bt" -> add_set_debug oval "backtrace"

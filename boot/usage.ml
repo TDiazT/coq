@@ -40,8 +40,6 @@ let print_usage_common co command =
 \n\
 \n  -load-vernac-source f  load Rocq file f.v (Load \"f\".)\
 \n  -l f                   (idem)\
-\n  -load-vernac-source-verbose f  load Rocq file f.v (Load Verbose \"f\".)\
-\n  -lv f	           (idem)\
 \n  -require lib           load Rocq library lib (Require lib)\
 \n  -require-import lib, -ri lib\
 \n                         load and import Rocq library lib\
@@ -49,7 +47,7 @@ let print_usage_common co command =
 \n  -require-export lib, -re lib\
 \n                         load and transitively import Rocq library lib\
 \n                         (equivalent to Require Export lib.)\
-\n  -require-from root lib, -rfrom root lib
+\n  -require-from root lib, -rfrom root lib\
 \n                         load Rocq library lib (From root Require lib.)\
 \n  -require-import-from root lib, -rifrom root lib\
 \n                         load and import Rocq library lib\

@@ -144,29 +144,15 @@ let string_of_genarg_arg (ArgumentType arg) =
       let (v1, v2) = unbox v Val.typ_pair in
       str "(" ++ pr_value lev v1 ++ str ", " ++ pr_value lev v2 ++ str ")"
     else
-      let Val.Dyn (tag, x) = v in
-      let name = Val.repr tag in
-      let default = str "<" ++ str name ++ str ">" in
-      match ArgT.name name with
-      | None -> default
-      | Some (ArgT.Any arg) ->
-        let wit = ExtraArg arg in
-        match val_tag (Topwit wit) with
-        | Val.Base t ->
-          begin match Val.eq t tag with
-          | None -> default
-          | Some Refl ->
-             let open Genprint in
-             match generic_top_print (in_gen (Topwit wit) x) with
-             | TopPrinterBasic pr -> pr ()
-             | TopPrinterNeedsContext pr ->
-               let env = Global.env() in
-               pr env (Evd.from_env env)
-             | TopPrinterNeedsContextAndLevel { default_ensure_surrounded; printer } ->
-               let env = Global.env() in
-               printer env (Evd.from_env env) default_ensure_surrounded
-          end
-        | _ -> default
+      let open Genprint in
+      match generic_val_print v with
+      | TopPrinterBasic pr -> pr ()
+      | TopPrinterNeedsContext pr ->
+        let env = Global.env() in
+        pr env (Evd.from_env env)
+      | TopPrinterNeedsContextAndLevel { default_ensure_surrounded; printer } ->
+        let env = Global.env() in
+        printer env (Evd.from_env env) default_ensure_surrounded
 
   let pr_with_occurrences prvar pr c = Ppred.pr_with_occurrences prvar pr keyword c
   let pr_red_expr env sigma pr c = Ppred.pr_red_expr_env env sigma pr keyword c
@@ -666,7 +652,6 @@ let pr_let_clauses recflag pr_gen pr l =
     pr_lconstr   : Environ.env -> Evd.evar_map -> 'trm -> Pp.t;
     pr_dconstr   : Environ.env -> Evd.evar_map -> 'dtrm -> Pp.t;
     pr_red_pattern   : Environ.env -> Evd.evar_map -> 'rpat -> Pp.t;
-    pr_pattern   : Environ.env -> Evd.evar_map -> 'pat -> Pp.t;
     pr_lpattern  : Environ.env -> Evd.evar_map -> 'pat -> Pp.t;
     pr_constant  : 'cst -> Pp.t;
     pr_reference : 'ref -> Pp.t;
@@ -1104,7 +1089,6 @@ let pr_let_clauses recflag pr_gen pr l =
       pr_dconstr = pr_constr_expr;
       pr_lconstr = pr_lconstr_expr;
       pr_red_pattern = pr_constr_expr;
-      pr_pattern = pr_constr_pattern_expr;
       pr_lpattern = pr_lconstr_pattern_expr;
       pr_constant = pr_or_by_notation pr_qualid;
       pr_reference = pr_qualid;
@@ -1137,7 +1121,6 @@ let pr_let_clauses recflag pr_gen pr l =
         pr_dconstr = (fun env sigma -> pr_and_constr_expr (pr_glob_constr_env env sigma));
         pr_lconstr = (fun env sigma -> pr_and_constr_expr (pr_lglob_constr_env env sigma));
         pr_red_pattern = (fun env sigma -> pr_and_constr_expr (pr_glob_constr_env env sigma));
-        pr_pattern = (fun env sigma -> pr_pat_and_constr_expr (pr_glob_constr_env env sigma));
         pr_constant = pr_or_var (pr_and_short_name (pr_evaluable_reference_env env));
         pr_lpattern = (fun env sigma -> pr_pat_and_constr_expr (pr_lglob_constr_env env sigma));
         pr_reference = pr_ltac_or_var (pr_located pr_ltac_constant);
@@ -1175,7 +1158,6 @@ let pr_let_clauses recflag pr_gen pr l =
         pr_dconstr = (fun env sigma -> pr_and_constr_expr (pr_glob_constr_env env sigma));
         pr_lconstr = pr_leconstr_env;
         pr_red_pattern = pr_constr_pattern_env;
-        pr_pattern = pr_constr_pattern_env;
         pr_lpattern = pr_lconstr_pattern_env;
         pr_constant = pr_evaluable_reference_env env;
         pr_reference = pr_located pr_ltac_constant;
@@ -1424,20 +1406,32 @@ let () =
   ltop (LevelLe 0)
 
 let () =
-  declare_extra_genarg_pprule_with_level wit_ltac_in_term
-    (fun env sigma _ _ prtac l tac -> prtac env sigma l tac)
-    (fun env sigma _ _ prtac l (used_ntnvars,tac) ->
-       let ppids =
-         let ids = Id.Set.elements used_ntnvars in
-         if List.is_empty ids then mt()
-         else hov 0 (pr_sequence Id.print ids ++ str " |-") ++ spc()
-       in
-       hov 2 (ppids ++ prtac env sigma l tac))
-    (fun env sigma _ _ _ _ tac -> Util.Empty.abort tac)
-  ltop (LevelLe 0)
+  let printer f x =
+    Genprint.PrinterNeedsLevel {
+      default_already_surrounded = ltop;
+      default_ensure_surrounded = LevelLe 0;
+      printer = (fun env sigma n -> f env sigma n x);
+    }
+  in
+  let pr_glob_tac_in_term env sigma l (used_ntnvars,tac) =
+    let ppids =
+      let ids = Id.Set.elements used_ntnvars in
+      if List.is_empty ids then mt()
+      else hov 0 (pr_sequence Id.print ids ++ str " |-") ++ spc()
+    in
+    hov 2 (ppids ++ pr_glob_tactic_level env l tac)
+  in
+  Genprint.register_constr_print wit_ltac_in_term
+    (printer pr_raw_tactic_level)
+    (printer pr_glob_tac_in_term)
 
 let () =
-  let pr_unit _env _sigma _ _ _ _ () = str "()" in
-  let printer env sigma _ _ prtac = prtac env sigma in
-  declare_extra_genarg_pprule_with_level wit_ltac printer printer pr_unit
-  ltop (LevelLe 0)
+  let printer f x =
+    Genprint.PrinterNeedsLevel {
+      default_already_surrounded = ltop;
+      default_ensure_surrounded = LevelLe 0;
+      printer = (fun env sigma n -> f env sigma n x);
+    }
+  in
+  Gentactic.register_print wit_ltac (printer pr_raw_tactic_level)
+    (printer (fun env _sigma n x -> pr_glob_tactic_level env n x))

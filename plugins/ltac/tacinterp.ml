@@ -40,6 +40,35 @@ open Proofview.Notations
 open Context.Named.Declaration
 open Ltac_pretype
 
+module TacStore = Tacenv.TacStore
+
+(* Signature for interpretation: val_interp and interpretation functions *)
+type interp_sign = Tacenv.interp_sign =
+  { lfun : Geninterp.Val.t Id.Map.t
+  ; poly : PolyFlags.t
+  ; extra : TacStore.t }
+
+module Register =
+struct
+type ('glb, 'top) interp_fun = interp_sign -> 'glb -> 'top Ftactic.t
+
+module InterpObj =
+struct
+  type ('raw, 'glb, 'top) obj = ('glb, Val.t) interp_fun
+  let name = "interp"
+  let default _ = None
+end
+
+module Interp = Register(InterpObj)
+
+let interp = Interp.obj
+
+let generic_interp ist (GenArg (Glbwit wit, v)) = interp wit ist v
+
+let register_interp0 = Interp.register0
+
+end
+
 let do_profile trace ?count_call tac =
   Profile_tactic.do_profile_gen (function
       | (_, c) :: _ -> Some (Pptactic.pp_ltac_call_kind c)
@@ -135,19 +164,11 @@ let name_vfun appl vle =
     of_tacvalue (VFun (combine_appl appl0 appl,trace,loc,lfun,vars,t))
   | Some (VRec _) | None -> vle
 
-module TacStore = Geninterp.TacStore
-
 let f_avoid_ids : Id.Set.t TacStore.field = TacStore.field "f_avoid_ids"
 (* ids inherited from the call context (needed to get fresh ids) *)
 let f_debug : debug_info TacStore.field = TacStore.field "f_debug"
 let f_trace : ltac_trace TacStore.field = TacStore.field "f_trace"
 let f_loc : Loc.t TacStore.field = TacStore.field "f_loc"
-
-(* Signature for interpretation: val_interp and interpretation functions *)
-type interp_sign = Geninterp.interp_sign =
-  { lfun : value Id.Map.t
-  ; poly : PolyFlags.t
-  ; extra : TacStore.t }
 
 let add_extra_trace trace extra = TacStore.set extra f_trace trace
 let extract_trace ist =
@@ -626,7 +647,7 @@ let constr_flags () = {
 
 (* Interprets a constr; expects evars to be solved *)
 let interp_constr_gen kind ist env sigma c =
-  let flags = { (constr_flags ()) with poly = ist.Geninterp.poly } in
+  let flags = { (constr_flags ()) with poly = ist.poly } in
   interp_gen kind ist false flags env sigma c
 
 let interp_constr = interp_constr_gen WithoutTypeConstraint
@@ -749,12 +770,6 @@ let interp_red_expr ist env sigma r =
   }
   in
   Redexpr.Interp.interp_red_expr ist env sigma r
-
-let interp_strategy ist _env _sigma s =
-  let interp_redexpr r = fun env sigma -> interp_red_expr ist env sigma r in
-  let interp_constr c = (fst c, fun env sigma -> interp_open_constr ist env sigma c) in
-  let s = Rewrite.map_strategy interp_constr interp_redexpr (fun x -> x) s in
-  Rewrite.strategy_of_ast s
 
 let interp_may_eval f ist env sigma = function
   | ConstrEval (r,c) ->
@@ -1070,7 +1085,7 @@ let rec read_match_rule ist env sigma = function
 (* Fully evaluate an untyped constr *)
 let type_uconstr ?(flags = (constr_flags ()))
   ?(expected_type = WithoutTypeConstraint) ist c =
-  let flags = { flags with poly = ist.Geninterp.poly } in
+  let flags = { flags with poly = ist.poly } in
   begin fun env sigma ->
     Pretyping.understand_uconstr ~flags ~expected_type env sigma c
   end
@@ -1578,7 +1593,7 @@ and interp_genarg ist x : Val.t Ftactic.t =
       interp_genarg ist (Genarg.in_gen (glbwit wit2) q) >>= fun q ->
       Ftactic.return (Val.Dyn (Val.typ_pair, (p, q)))
     | ExtraArg s ->
-      Geninterp.generic_interp ist x0
+      Register.generic_interp ist x0
 
 (** returns [true] for genargs which have the same meaning
     independently of goals. *)
@@ -1725,7 +1740,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
           let (sigma,c_interp) = interp_type ist env sigma c in
           sigma , (interp_ident ist env sigma id,n,c_interp) in
         let (sigma,l_interp) =
-          Evd.MonadR.List.map_right (fun c sigma -> f sigma c) l sigma
+          Evd.Monad.List.map_right (fun c sigma -> f sigma c) l sigma
         in
         Tacticals.tclTHEN (Proofview.Unsafe.tclEVARS sigma)
         (FixTactics.mutual_fix (interp_ident ist env sigma id) n l_interp)
@@ -1741,7 +1756,7 @@ and interp_atomic ist tac : unit Proofview.tactic =
           let (sigma,c_interp) = interp_type ist env sigma c in
           sigma , (interp_ident ist env sigma id,c_interp) in
         let (sigma,l_interp) =
-          Evd.MonadR.List.map_right (fun c sigma -> f sigma c) l sigma
+          Evd.Monad.List.map_right (fun c sigma -> f sigma c) l sigma
         in
         Tacticals.tclTHEN (Proofview.Unsafe.tclEVARS sigma)
         (FixTactics.mutual_cofix (interp_ident ist env sigma id) l_interp)
@@ -1980,6 +1995,14 @@ let eval_tactic_ist ist t =
   Proofview.tclLIFT (db_initialize false) <*>
   eval_tactic_ist ist t
 
+let interp_strategy ist env sigma s =
+  let interp_redexpr r = fun env sigma -> interp_red_expr ist env sigma r in
+  let interp_constr c = (fst c, fun env sigma -> interp_open_constr ist env sigma c) in
+  let interp_pattern (_, p, up) = Patternops.interp_pattern env sigma Glob_ops.empty_lvar up in
+  let s = RewriteStratAst.map_strategy interp_constr interp_pattern interp_redexpr
+            (fun x -> x) (interp_tactic ist) s in
+  RewriteStratAst.strategy_of_ast s
+
 (** FFI *)
 
 module Value = struct
@@ -2063,7 +2086,7 @@ let register_interp0 wit f =
   let interp ist v =
     f ist v >>= fun v -> Ftactic.return (Val.inject (val_tag wit) v)
   in
-  Geninterp.register_interp0 wit interp
+  Register.register_interp0 wit interp
 
 let def_intern ist x = (ist, x)
 let def_subst _ x = x
@@ -2147,8 +2170,13 @@ let () =
   register_interp0 wit_tactic interp
 
 let () =
-  let interp ist tac = eval_tactic_ist ist tac >>= fun () -> Ftactic.return () in
-  register_interp0 wit_ltac interp
+  let interp lfun tac =
+    let open Proofview.Notations in
+    Proofview.tclProofInfo[@ocaml.warning"-3"] >>= fun (_name, poly) ->
+    let ist = { lfun; poly; extra = TacStore.empty } in
+    eval_tactic_ist ist tac
+  in
+  Gentactic.register_interp wit_ltac interp
 
 let () =
   register_interp0 wit_uconstr (fun ist c -> Ftactic.enter begin fun gl ->

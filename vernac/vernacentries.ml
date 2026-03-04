@@ -50,6 +50,7 @@ let scope_class_of_qualid qid =
 (** Standard attributes for definition-like commands. *)
 module DefAttributes = struct
   type t = {
+    hooks : Declare.Hook.t list ;
     scope : definition_scope;
     locality : bool option;
     poly : PolyFlags.t;
@@ -72,6 +73,20 @@ module DefAttributes = struct
      we could alternatively decide to change the default locality
      of the coercion from out-of-section [Let Coercion].
   *)
+
+  module Observer = Summary.MakeObservable (struct
+      type value = Declare.Hook.t list attribute
+      let local = false
+      let stage = Summary.Stage.Interp
+      let name = "Definition attribute"
+    end)
+
+  let active_hooks () : Declare.Hook.t list attribute =
+    let module AttList = Monad.Make(Attributes.Notations) in
+    let active = Observer.all_active () in
+    let open Attributes.Notations in
+    AttList.List.map snd active >>= fun res ->
+    return (List.concat res)
 
   let importability_of_bool = function
     | true -> ImportNeedQualified
@@ -107,20 +122,23 @@ module DefAttributes = struct
   let def_attributes_gen ?(coercion=false) ?(discharge=NoDischarge,"","") () =
     let discharge, deprecated_thing, replacement = discharge in
     let clearbody = match discharge with DoDischarge -> clearbody | NoDischarge -> return None in
+    (* It is important because it prevents early evaluation of [active_hooks ()] *)
+    return () >>= fun () ->
     (locality ++ user_warns_with_use_globref_instead ++ poly PolyFlags.Definition ++ program ++
                canonical_instance ++ typing_flags ++ using ++
-               reversible ++ clearbody) >>= fun ((((((((locality, user_warns), poly), program),
+               reversible ++ clearbody ++ active_hooks ()) >>=
+    fun (((((((((locality, user_warns), poly), program),
            canonical_instance), typing_flags), using),
-           reversible), clearbody) ->
+           reversible), clearbody), hooks) ->
       let using = Option.map Proof_using.using_from_string using in
       let reversible = Option.default false reversible in
       let () = if Option.has_some clearbody && not (Lib.sections_are_opened())
         then CErrors.user_err Pp.(str "Cannot use attribute clearbody outside sections.")
       in
       let scope = scope_of_locality locality discharge deprecated_thing replacement in
-      return { scope; locality; poly; program; user_warns; canonical_instance; typing_flags; using; reversible; clearbody }
+      return { hooks; scope; locality; poly; program; user_warns; canonical_instance; typing_flags; using; reversible; clearbody }
 
-  let parse ?coercion ?discharge f =
+  let parse ?coercion ?discharge f (* : DefAttributes.t  *) =
     Attributes.parse (def_attributes_gen ?coercion ?discharge ()) f
 
   let def_attributes = def_attributes_gen ()
@@ -167,8 +185,9 @@ let show_top_evars ~proof =
   pr_evars_int sigma ~shelf ~given_up 1 (Evd.undefined_map sigma)
 
 let show_universes ~proof =
-  let Proof.{goals;sigma} = Proof.data proof in
-  let ctx = Evd.sort_context_set (Evd.minimize_universes sigma) in
+  let Proof.{ goals; sigma; poly } = Proof.data proof in
+  let to_type = PolyFlags.collapse_sort_variables poly in
+  let ctx = Evd.sort_context_set (Evd.minimize_universes ~to_type sigma) in
   UState.pr (Evd.ustate sigma) ++ fnl () ++
   v 1 (str "Normalized constraints:" ++ cut() ++
        UnivGen.pr_sort_context (Termops.pr_evd_qvar sigma) (Termops.pr_evd_level sigma) ctx)
@@ -811,18 +830,26 @@ let check_name_freshness locality {CAst.loc;v=id} : unit =
   then
     user_err ?loc  (Id.print id ++ str " already exists.")
 
-let vernac_definition_hook ~canonical_instance ~local ~poly ~reversible = let open Decls in function
-| Coercion ->
-  Some (ComCoercion.add_coercion_hook ~reversible)
-| CanonicalStructure ->
-  Some (Declare.Hook.(make (fun { S.dref } -> Canonical.declare_canonical_structure ?local dref)))
-| SubClass ->
-  Some (ComCoercion.add_subclass_hook ~poly ~reversible)
-| Definition when canonical_instance ->
-  Some (Declare.Hook.(make (fun { S.dref } -> Canonical.declare_canonical_structure ?local dref)))
-| Let when canonical_instance ->
-  Some (Declare.Hook.(make (fun { S.dref } -> Canonical.declare_canonical_structure dref)))
-| _ -> None
+let vernac_definition_hook ~hooks ~canonical_instance ~local ~poly ~reversible kind =
+  let hooks =
+    let open Decls in
+    let open Declare.Hook in
+    match kind with
+    | Coercion ->
+      (ComCoercion.coercion_hook ~reversible) :: hooks
+    | CanonicalStructure ->
+      make (fun { S.dref } -> Canonical.declare_canonical_structure ?local dref) :: hooks
+    | SubClass ->
+      (ComCoercion.subclass_hook ~poly ~reversible) :: hooks
+    | Definition when canonical_instance ->
+      make (fun { S.dref } -> Canonical.declare_canonical_structure ?local dref) :: hooks
+    | Let when canonical_instance ->
+      make (fun { S.dref } -> Canonical.declare_canonical_structure dref) :: hooks
+    | _ -> hooks
+  in
+  match hooks with
+  | [] -> None
+  | _ -> Some (Declare.Hook.make (fun st -> List.iter (fun hook -> Declare.Hook.call ~hook st) hooks))
 
 let default_thm_id = Id.of_string "Unnamed_thm"
 
@@ -845,34 +872,37 @@ let vernac_definition_name lid local =
   lid.v
 
 let vernac_definition_interactive ~atts (discharge, kind) (lid, udecl) bl t =
-  let open DefAttributes in
-  let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
-    atts.scope, atts.locality, atts.poly, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
-  let canonical_instance, reversible = atts.canonical_instance, atts.reversible in
-  let hook = vernac_definition_hook ~canonical_instance ~local ~poly ~reversible kind in
+  let DefAttributes.{
+    scope; locality=local; poly; program=program_mode; hooks;
+    user_warns; typing_flags; using; clearbody; canonical_instance; reversible;
+    } = atts
+  in
+  let hook = vernac_definition_hook ~hooks ~canonical_instance ~local ~poly ~reversible kind in
   let name = vernac_definition_name lid scope in
-  ComDefinition.do_definition_interactive ?loc:lid.loc ~typing_flags ~program_mode ~name ~poly ~scope ?clearbody:atts.clearbody
-    ~kind:(Decls.IsDefinition kind) ?user_warns ?using:atts.using ?hook udecl bl t
+  ComDefinition.do_definition_interactive ?loc:lid.loc ~typing_flags ~program_mode ~name ~poly ~scope ?clearbody
+    ~kind:(Decls.IsDefinition kind) ?user_warns ?using ?hook udecl bl t
 
 let vernac_definition_refine ~atts (discharge, kind) (lid, udecl) bl red_option c typ_opt =
   if Option.has_some red_option then
     CErrors.user_err ?loc:c.loc Pp.(str "Cannot use Eval with #[refine].");
-  let open DefAttributes in
-  let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
-     atts.scope, atts.locality, atts.poly, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
-  let canonical_instance, reversible = atts.canonical_instance, atts.reversible in
-  let hook = vernac_definition_hook ~canonical_instance ~local ~poly kind ~reversible in
+  let DefAttributes.{
+    scope; locality=local; poly; program=program_mode; hooks;
+    user_warns; typing_flags; using; clearbody; canonical_instance; reversible;
+    } = atts
+  in
+  let hook = vernac_definition_hook ~hooks ~canonical_instance ~local ~poly kind ~reversible in
   let name = vernac_definition_name lid scope in
   ComDefinition.do_definition_refine ~name ?loc:lid.loc
     ?clearbody ~poly ~typing_flags ~scope ~kind:(Decls.IsDefinition kind)
     ?user_warns ?using udecl bl c typ_opt ?hook
 
 let vernac_definition ~atts ~pm (discharge, kind) (lid, udecl) bl red_option c typ_opt =
-  let open DefAttributes in
-  let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
-    atts.scope, atts.locality, atts.poly, atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
-  let canonical_instance, reversible = atts.canonical_instance, atts.reversible in
-  let hook = vernac_definition_hook ~canonical_instance ~local ~poly kind ~reversible in
+  let DefAttributes.{
+    scope; locality=local; poly; program=program_mode; hooks;
+    user_warns; typing_flags; using; clearbody; canonical_instance; reversible;
+    } = atts
+  in
+  let hook = vernac_definition_hook ~hooks ~canonical_instance ~local ~poly kind ~reversible in
   let name = vernac_definition_name lid scope in
   let red_option = match red_option with
     | None -> None
@@ -894,12 +924,13 @@ let vernac_definition ~atts ~pm (discharge, kind) (lid, udecl) bl red_option c t
 
 (* NB: pstate argument to use combinators easily *)
 let vernac_start_proof ~atts kind l =
-  let open DefAttributes in
   if Dumpglob.dump () then
     List.iter (fun ((id, _), _) -> Dumpglob.dump_definition id false "prf") l;
-  let scope, local, poly, program_mode, user_warns, typing_flags, using, clearbody =
-    atts.scope, atts.locality, atts.poly,
-    atts.program, atts.user_warns, atts.typing_flags, atts.using, atts.clearbody in
+  let DefAttributes.{
+    scope; locality=local; poly; program=program_mode;
+    user_warns; typing_flags; using; clearbody;
+    } = atts
+  in
   List.iter (fun ((id, _), _) -> check_name_freshness scope id) l;
   match l with
   | [] -> assert false
@@ -939,9 +970,7 @@ let vernac_exact_proof ~lemma ~pm c =
   pm
 
 let vernac_assumption ~atts kind l inline =
-  let open DefAttributes in
-  let scope, poly, program_mode, using, user_warns =
-    atts.scope, atts.poly, atts.program, atts.using, atts.user_warns in
+  let DefAttributes.{ scope; poly; program=program_mode; using; user_warns; } = atts in
   if Option.has_some using then
     Attributes.unsupported_attributes [CAst.make ("using",VernacFlagEmpty)];
   ComAssumption.do_assumptions ~poly ~program_mode ~scope ~kind ?user_warns ~inline l
@@ -1296,13 +1325,6 @@ let vernac_inductive ~atts kind indl =
 let preprocess_inductive_decl ~atts kind indl =
   snd @@ preprocess_inductive_decl ~atts kind indl
 
-let vernac_fixpoint_common ~atts l =
-  if Dumpglob.dump () then
-    List.iter (fun { fname } -> Dumpglob.dump_definition fname false "def") l;
-  let scope = atts.DefAttributes.scope in
-  List.iter (fun { fname } -> check_name_freshness scope fname) l;
-  scope
-
 let with_obligations program_mode f pm =
   if program_mode then
     f pm ~program_mode:true
@@ -1312,10 +1334,10 @@ let with_obligations program_mode f pm =
     pm, proof
 
 let vernac_fixpoint ~atts ~refine ~pm (rec_order,fixl) =
-  let open DefAttributes in
-  let scope = vernac_fixpoint_common ~atts fixl in
-  let poly, typing_flags, program_mode, clearbody, using, user_warns =
-    atts.poly, atts.typing_flags, atts.program, atts.clearbody, atts.using, atts.user_warns in
+  let DefAttributes.{ scope; poly; typing_flags; program=program_mode; clearbody; using; user_warns; } = atts in
+  if Dumpglob.dump () then
+    List.iter (fun { fname } -> Dumpglob.dump_definition fname false "def") fixl;
+  List.iter (fun { fname } -> check_name_freshness scope fname) fixl;
   let () =
     if program_mode then
       (* XXX: Switch to the attribute system and match on ~atts *)
@@ -1325,18 +1347,11 @@ let vernac_fixpoint ~atts ~refine ~pm (rec_order,fixl) =
     (fun pm -> ComFixpoint.do_mutually_recursive ?pm ~refine ~scope ?clearbody ~kind:(IsDefinition Fixpoint) ~poly ?typing_flags ?user_warns ?using (CFixRecOrder rec_order, fixl))
     pm
 
-let vernac_cofixpoint_common ~atts l =
-  if Dumpglob.dump () then
-    List.iter (fun { fname } -> Dumpglob.dump_definition fname false "def") l;
-  let scope = atts.DefAttributes.scope in
-  List.iter (fun { fname } -> check_name_freshness scope fname) l;
-  scope
-
 let vernac_cofixpoint ~pm ~refine ~atts cofixl =
-  let open DefAttributes in
-  let scope = vernac_cofixpoint_common ~atts cofixl in
-  let poly, typing_flags, program_mode, clearbody, using, user_warns =
-    atts.poly, atts.typing_flags, atts.program, atts.clearbody, atts.using, atts.user_warns in
+  let DefAttributes.{ scope; poly; typing_flags; program=program_mode; clearbody; using; user_warns; } = atts in
+  if Dumpglob.dump () then
+    List.iter (fun { fname } -> Dumpglob.dump_definition fname false "def") cofixl;
+  List.iter (fun { fname } -> check_name_freshness scope fname) cofixl;
   let () =
     if program_mode then
       let opens = List.exists (fun { body_def } -> Option.is_empty body_def) cofixl in
@@ -2362,6 +2377,7 @@ let vernac_register ~atts qid r =
     in
     let () =
       if not (Ind_tables.is_declared_scheme_object scheme_kind_s
+          || String.equal "All" scheme_kind_s || String.equal "AllForall" scheme_kind_s
           || test_all "All_" scheme_kind_s || test_all "AllForall_" scheme_kind_s) then
       warn_unknown_scheme_kind ?loc:scheme_kind.loc scheme_kind
     in
@@ -2687,6 +2703,10 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
   | VernacScheme l ->
     vtdefault(fun () ->
         vernac_scheme atts l)
+  | VernacSchemeAll (id, strpos) ->
+    vtdefault(fun () ->
+        unsupported_attributes atts;
+        DeclareInd.do_scheme_all id strpos)
   | VernacSchemeEquality (sch,id) ->
     vtdefault(fun () ->
         unsupported_attributes atts;
@@ -2706,8 +2726,8 @@ let translate_pure_vernac ?loc ~atts v = let open Vernactypes in match v with
 
   | VernacAddRewRule (id, c) ->
     vtdefault (fun () ->
-        unsupported_attributes atts;
-        ComRewriteRule.do_rules id.v c)
+        let collapse_sort_variables = Option.default true @@ Attributes.(parse collapse_sort_variables) atts in
+        ComRewriteRule.do_rules ~collapse_sort_variables id.v c)
 
   (* Gallina extensions *)
 

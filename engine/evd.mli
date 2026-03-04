@@ -22,8 +22,7 @@ open Environ
     A unification state (of type [evar_map]) is primarily a finite mapping
     from existential variables to records containing the type of the evar
     ([evar_concl]), the context under which it was introduced ([evar_hyps])
-    and its definition ([evar_body]). [evar_extra] is used to add any other
-    kind of information.
+    and its definition ([evar_body]).
 
     It also contains conversion constraints, debugging information and
     information about meta variables. *)
@@ -490,10 +489,7 @@ val add_constraints : evar_map -> UnivProblem.Set.t -> evar_map
 
   Evar maps can contain arbitrary data, allowing to use an extensible state.
   As evar maps are theoretically used in a strict state-passing style, such
-  additional data should be passed along transparently. Some old and bug-prone
-  code tends to drop them nonetheless, so you should keep cautious.
-
-*)
+  additional data should be passed along transparently. *)
 
 module Store : Store.S
 (** Datatype used to store additional information in evar maps. *)
@@ -503,8 +499,7 @@ val set_extra_data : Store.t -> evar_map -> evar_map
 
 (** {5 The state monad with state an evar map} *)
 
-module MonadR : Monad.S with type +'a t = evar_map -> evar_map * 'a
-module Monad  : Monad.S with type +'a t = evar_map -> 'a * evar_map
+module Monad : Monad.S with type +'a t = evar_map -> evar_map * 'a
 
 (** Unification constraints *)
 type conv_pb = Conversion.conv_pb
@@ -578,7 +573,8 @@ val universe_binders : evar_map -> UnivNames.universe_binders
 
 val new_univ_level_variable : ?loc:Loc.t -> ?name:Id.t -> rigid -> evar_map -> evar_map * Univ.Level.t
 val new_quality_variable : ?loc:Loc.t -> ?name:Id.t -> evar_map -> evar_map * Sorts.QVar.t
-val new_sort_variable : ?loc:Loc.t -> rigid -> evar_map -> evar_map * esorts
+val new_sort_info : ?loc:Loc.t -> ?sort_rigid:bool -> ?name:Names.Id.t -> rigid -> evar_map -> evar_map * Sorts.QVar.t * Univ.Universe.t
+val new_sort_variable : ?loc:Loc.t -> ?sort_rigid:bool -> ?name:Names.Id.t -> rigid -> evar_map -> evar_map * esorts
 
 val add_forgotten_univ : evar_map -> Univ.Level.t -> evar_map
 
@@ -606,10 +602,10 @@ val check_leq : evar_map -> esorts -> esorts -> bool
 val check_univ_constraints : evar_map -> Univ.UnivConstraints.t -> bool
 val check_elim_constraints : evar_map -> Sorts.ElimConstraints.t -> bool
 val check_poly_constraints : evar_map -> PConstraints.t -> bool
+val check_quality_constraints : evar_map -> UVars.QPairSet.t -> bool
 
 val ustate : evar_map -> UState.t
 val elim_graph : evar_map -> QGraph.t
-val evar_universe_context : evar_map -> UState.t [@@deprecated "(9.0) Use [Evd.ustate]"]
 
 val universe_context_set : evar_map -> Univ.ContextSet.t
 val sort_context_set : evar_map -> UnivGen.sort_context_set
@@ -628,23 +624,28 @@ val check_univ_decl : poly:PolyFlags.t -> evar_map -> UState.universe_decl -> US
     starting to build a declaration interactively *)
 val check_univ_decl_early : poly:PolyFlags.t -> with_obls:bool -> evar_map -> UState.universe_decl -> Constr.t list -> unit
 
-val merge_universe_context : evar_map -> UState.t -> evar_map
+val merge_ustate : evar_map -> UState.t -> evar_map
 val set_universe_context : evar_map -> UState.t -> evar_map
+
+val merge_universe_context : evar_map -> UState.t -> evar_map
+[@@deprecated "(9.3) Use [Evd.merge_ustate]"]
 
 val merge_universe_context_set : ?loc:Loc.t -> ?sideff:bool -> rigid -> evar_map -> Univ.ContextSet.t -> evar_map
 
-val merge_sort_context_set : ?loc:Loc.t -> ?sideff:bool -> ?src:UState.constraint_source -> rigid -> evar_map -> UnivGen.sort_context_set -> evar_map
+val merge_sort_context_set : ?loc:Loc.t -> ?sort_rigid:bool -> ?sideff:bool ->
+  ?src:UState.constraint_source -> rigid -> evar_map -> UnivGen.sort_context_set -> evar_map
 
-val with_sort_context_set : ?loc:Loc.t -> ?src:UState.constraint_source -> rigid -> evar_map -> 'a UnivGen.in_sort_context_set -> evar_map * 'a
+val with_sort_context_set : ?loc:Loc.t -> ?sort_rigid:bool -> ?src:UState.constraint_source ->
+  rigid -> evar_map -> 'a UnivGen.in_sort_context_set -> evar_map * 'a
 
 val nf_univ_variables : evar_map -> evar_map
 
-val collapse_sort_variables : ?except:Sorts.QVar.Set.t -> evar_map -> evar_map
+val collapse_sort_variables : ?except:Sorts.QVar.Set.t -> ?to_type:bool -> evar_map -> evar_map
 
 val fix_undefined_variables : evar_map -> evar_map
 
 (** Universe minimization (collapse_sort_variables is true by default) *)
-val minimize_universes : ?collapse_sort_variables:bool -> evar_map -> evar_map
+val minimize_universes : ?collapse_sort_variables:bool -> ?to_type:bool -> evar_map -> evar_map
 
 (** Lift [UState.update_sigma_univs] *)
 val update_sigma_univs : UGraph.t -> evar_map -> evar_map
@@ -655,7 +656,7 @@ val fresh_sort_in_quality : ?loc:Loc.t -> ?rigid:rigid
   -> evar_map -> UnivGen.QualityOrSet.t -> evar_map * esorts
 val fresh_constant_instance : ?loc:Loc.t -> ?rigid:rigid
   -> env -> evar_map -> Constant.t -> evar_map * Constant.t puniverses
-val fresh_inductive_instance : ?loc:Loc.t -> ?rigid:rigid
+val fresh_inductive_instance : ?loc:Loc.t -> ?sort_rigid:bool -> ?rigid:rigid
   -> env -> evar_map -> inductive -> evar_map * inductive puniverses
 val fresh_constructor_instance : ?loc:Loc.t -> ?rigid:rigid
   -> env -> evar_map -> constructor -> evar_map * constructor puniverses

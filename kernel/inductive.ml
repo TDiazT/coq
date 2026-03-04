@@ -673,7 +673,8 @@ type subterm_spec =
 let is_norec_path t = match Rtree.dest_head t with
 | Norec -> true
 | Mrec _ -> false
-| exception (Failure _) -> false
+| exception Failure _ ->
+  anomaly ~label:"rtree" Pp.(str "Non-closed recursive tree during guard checking.")
 
 let inter_recarg r1 r2 = if eq_recarg r1 r2 then Some r1 else None
 
@@ -960,9 +961,8 @@ let get_recargs_approx cache ?evars env tree ind args =
     if is_norec_path tree then tree
     else
     let mib = Environ.lookup_mind mind env in
-    let auxnpar = mib.mind_nparams_rec in
-    let nonrecpar = mib.mind_nparams - auxnpar in
-    let (lpar,_) = List.chop auxnpar largs in
+    let nonrecpar = mib.mind_nparams - mib.mind_nparams_rec in
+    let (lpar,_) = List.chop mib.mind_nparams_rec largs in
     let auxntyp = Declareops.mind_ntypes mib in
     (* Extends the environment with a variable corresponding to
              the inductive def *)
@@ -978,7 +978,7 @@ let get_recargs_approx cache ?evars env tree ind args =
     in
     let mk_irecargs j mip =
       (* The nested inductive type with parameters removed *)
-      let auxlcvect = abstract_mind_lc auxntyp auxnpar mind mip.mind_nf_lc in
+      let auxlcvect = abstract_mind_lc auxntyp mib.mind_nparams_rec mind mip.mind_nf_lc in
       let paths = Array.mapi
         (fun k c ->
          let c' = hnf_prod_applist ?evars env' c lpar' in
@@ -1021,6 +1021,16 @@ let get_recargs_approx cache ?evars env tree ind args =
   assigned Norec *)
   build_recargs_nested (env,[]) tree (ind, args)
 
+(* Check that the parameter arguments of an inductive type do not mention some
+   variable range. This is used as a fast-path when casting recursive trees
+   against a commutative cut: indices are irrelevant for the tree
+   computation in {!get_recargs_approx}. *)
+let has_constant_parameters env nvars k ((mind, _), _) args =
+  let mib = Environ.lookup_mind mind env in
+  let auxnpar = mib.mind_nparams_rec in
+  let (lpar, _) = List.chop auxnpar args in
+  List.for_all (fun c -> noccur_with_meta (1 + k) (nvars + k) c) lpar
+
 (* [restrict_spec env spec p] restricts the size information in spec to what is
    allowed to flow out of a match with predicate p in environment env. *)
 let restrict_spec cache ?evars env spec p =
@@ -1028,63 +1038,68 @@ let restrict_spec cache ?evars env spec p =
   | Not_subterm | Internally_bound_subterm _ -> spec
   | _ ->
   let absctx, ar = whd_decompose_lambda_decls ?evars env p in
+  let absctxlen = Context.Rel.length absctx in
   (* Optimization: if the predicate is not dependent, no restriction is needed
      and we avoid building the recargs tree. *)
-  if noccur_with_meta 1 (Context.Rel.length absctx) ar then spec
+  if noccur_with_meta 1 absctxlen ar then spec
   else
   let env = push_rel_context absctx env in
-  let arctx, s = whd_decompose_prod_decls ?evars env ar in
+  let arctx, s = whd_decompose_prod ?evars env ar in
   let env = push_rel_context arctx env in
   let i,args = decompose_app_list (whd_all ?evars env s) in
   match kind i with
   | Ind i ->
-     begin match spec with
-           | Dead_code -> spec
-           | Subterm(l,st,tree) ->
-              let recargs = get_recargs_approx cache ?evars env tree i args in
-              let recargs = inter_wf_paths tree recargs in
-              Subterm(l,st,recargs)
-           | _ -> assert false
-     end
+    if has_constant_parameters env absctxlen (List.length arctx) i args then spec
+    else begin match spec with
+    | Dead_code -> spec
+    | Subterm (l, st, tree) ->
+      let recargs = get_recargs_approx cache ?evars env tree i args in
+      let tree = inter_wf_paths tree recargs in
+      Subterm (l, st, tree)
+    | _ -> assert false
+    end
   | _ -> Not_subterm
 
 (* [filter_stack_domain env spec p] restricts the size information in stack to
    what is allowed to enter under a match with predicate p in environment env. *)
 let filter_stack_domain cache stack_element_specif set_iota_specif ?evars env p stack =
   let absctx, ar = Term.decompose_lambda_decls p in
+  let absctxlen = Context.Rel.length absctx in
   (* Optimization: if the predicate is not dependent, no restriction is needed
      and we avoid building the recargs tree. *)
-  if noccur_with_meta 1 (Context.Rel.length absctx) ar then stack
-  else let env = push_rel_context absctx env in
-  let rec filter_stack env ar stack =
-    match stack with
+  if noccur_with_meta 1 absctxlen ar then stack
+  else
+    let env = push_rel_context absctx env in
+    let rec filter_stack env k ar stack = match stack with
     | [] -> []
     | elt :: stack' ->
-    let t = whd_all ?evars env ar in
-    match kind t with
-    | Prod (n,a,c0) ->
-      let d = LocalAssum (n,a) in
-      let ctx, a = whd_decompose_prod_decls ?evars env a in
-      let env = push_rel_context ctx env in
-      let ty, args = decompose_app_list (whd_all ?evars env a) in
-      let elt = match kind ty with
-      | Ind ind ->
-        let spec = stack_element_specif cache ?evars elt in
-        let sarg =
-        lazy (match Lazy.force spec with
-        | Not_subterm | Dead_code | Internally_bound_subterm _ as spec -> spec
-        | Subterm(l,s,path) ->
-            let recargs = get_recargs_approx cache ?evars env path ind args in
-            let path = inter_wf_paths path recargs in
-            Subterm(l,s,path))
+      let t = whd_all ?evars env ar in
+      match kind t with
+      | Prod (n, a, c0) ->
+        let d = LocalAssum (n, a) in
+        let ctx, a = whd_decompose_prod ?evars env a in
+        let env = push_rel_context ctx env in
+        let ty, args = decompose_app_list (whd_all ?evars env a) in
+        let elt = match kind ty with
+        | Ind ind ->
+          let spec = stack_element_specif cache ?evars elt in
+          if has_constant_parameters env absctxlen (k + List.length ctx) ind args then SArg spec
+          else
+            let sarg = lazy begin match Lazy.force spec with
+            | Not_subterm | Dead_code | Internally_bound_subterm _ as spec -> spec
+            | Subterm (l, s, tree) ->
+              let recargs = get_recargs_approx cache ?evars env tree ind args in
+              let tree = inter_wf_paths tree recargs in
+              Subterm (l, s, tree)
+            end in
+            SArg sarg
+        | _ -> SArg (set_iota_specif (lazy Not_subterm))
         in
-        SArg sarg
-      | _ -> SArg (set_iota_specif (lazy Not_subterm))
-      in
-      elt :: filter_stack (push_rel d env) c0 stack'
-    | _ -> List.fold_right (fun _ l -> SArg (set_iota_specif (lazy Not_subterm)) :: l) stack []
+        elt :: filter_stack (push_rel d env) (k + 1) c0 stack'
+      | _ ->
+        List.map (fun _ -> SArg (set_iota_specif (lazy Not_subterm))) stack
   in
-  filter_stack env ar stack
+  filter_stack env 0 ar stack
 
 (* [subterm_specif renv t] computes the recursive structure of [t] and
    compare its size with the size of the initial recursive argument of
@@ -1626,7 +1641,14 @@ let check_one_fix cache ?evars renv recpos trees def =
   | NeedReduce (env,err) -> raise (FixGuardError (env,err))
   | NoNeedReduce -> ()
 
-let inductive_of_mutfix ?evars ?elim_to env ((nvect,bodynum),(names,types,bodies as recdef)) =
+let raise_fix_guard_err_fn env recdef names =
+  let fixenv = push_rec_types recdef env in
+  let vdefj = judgment_of_fixpoint recdef in
+  let raise_err env i err =
+    error_ill_formed_rec_body env (Type_errors.FixGuardError err) names i fixenv vdefj in
+  raise_err
+
+let inductive_of_mutfix ?evars env ((nvect, bodynum), (names, types, bodies as recdef)) =
   let nbfix = Array.length bodies in
   if Int.equal nbfix 0
     || not (Int.equal (Array.length nvect) nbfix)
@@ -1636,9 +1658,7 @@ let inductive_of_mutfix ?evars ?elim_to env ((nvect,bodynum),(names,types,bodies
     || bodynum >= nbfix
   then anomaly (Pp.str "Ill-formed fix term.");
   let fixenv = push_rec_types recdef env in
-  let vdefj = judgment_of_fixpoint recdef in
-  let raise_err env i err =
-    error_ill_formed_rec_body env (Type_errors.FixGuardError err) names i fixenv vdefj in
+  let raise_err = raise_fix_guard_err_fn env recdef names in
   (* Check the i-th definition with recarg k *)
   let find_ind i k def =
     (* check fi does not appear in the k+1 first abstractions,
@@ -1662,55 +1682,70 @@ let inductive_of_mutfix ?evars ?elim_to env ((nvect,bodynum),(names,types,bodies
             else anomaly ~label:"check_one_fix" (Pp.str "Bad occurrence of recursive call.")
         | _ -> raise_err env i (NotEnoughAbstractionInFixBody k)
     in
-    let ((ind, inst), _) as res = check_occur fixenv 1 def in
-    let _, mip = lookup_mind_specif env ind in
-    (* recursive sprop means non record with projections -> squashed *)
-    let () =
-      if Environ.is_type_in_type env (GlobRef.IndRef ind) then ()
-      else
-        let sind = UVars.subst_instance_sort inst mip.mind_sort in
-        let u = Sorts.univ_of_sort sind in
-        (* This is an approximation: a [Relevant] variable might be of sort [Prop]
-           or [Type]. As we only care about the quality, we have to be conservative
-           here, i.e., every relevant sort (so, [Prop] or above) can be eliminated
-           into any other relevant sort. *)
-        let bsort = match names.(i).Context.binder_relevance with
-          | Irrelevant -> Sorts.sprop
-          | Relevant -> Sorts.prop
-          | RelevanceVar q -> Sorts.qsort q u in
-        let elim_to = match elim_to with
-          | Some f -> f
-          | None -> eliminates_to (Environ.qualities env) in
-        if not (is_allowed_fixpoint elim_to sind bsort) then
-          raise_err env i @@ FixpointOnNonEliminable (sind, bsort)
-    in
-    res
+    check_occur fixenv 1 def
   in
   (* Do it on every fixpoint *)
   let rv = Array.map2_i find_ind nvect bodies in
   (Array.map fst rv, Array.map snd rv)
 
-
-let check_fix ?evars ?elim_to env ((nvect,_),(names,_,bodies as recdef) as fix) =
-  let cache = Cache.create () in
-  let (minds, rdef) = inductive_of_mutfix ?evars ?elim_to env fix in
-  let flags = Environ.typing_flags env in
-  if flags.check_guarded then
-    let get_tree (kn,i) =
-      let mib = Environ.lookup_mind kn env in
-      mib.mind_packets.(i).mind_recargs
-    in
-    let trees = Array.map (fun (mind,_) -> get_tree mind) minds in
-    for i = 0 to Array.length bodies - 1 do
-      let (fenv,body) = rdef.(i) in
-      let renv = make_renv fenv nvect.(i) trees.(i) in
-      try check_one_fix cache ?evars renv nvect trees body
-      with FixGuardError (fixenv,err) ->
-        error_ill_formed_rec_body fixenv (Type_errors.FixGuardError err) names i
-          (push_rec_types recdef env) (judgment_of_fixpoint recdef)
-    done
+(* Returns the pairs of (inductive sort * output sort) or
+ * None if any elimination constraint was ignored. *)
+let sorts_of_mutfix env minds names =
+  let ind_ignores_elim_constraints (ind, _) = Environ.ind_ignores_elim_constraints env ind in
+  (* recursive sprop means non record with projections -> squashed *)
+  if Array.exists ind_ignores_elim_constraints minds then None
   else
-    ()
+    Some (Array.fold_left_i (fun i sorts (ind, inst) ->
+        let _, mip = lookup_mind_specif env ind in
+        let ind_sort = UVars.subst_instance_sort inst mip.mind_sort in
+        let u = Sorts.univ_of_sort ind_sort in
+        (* This is an approximation: a [Relevant] variable might be of sort [Prop]
+           or [Type]. As we only care about the quality, we have to be conservative
+           here, i.e., every relevant sort (so, [Prop] or above) can be eliminated
+           into any other relevant sort. *)
+        let out_sort = match names.(i).Context.binder_relevance with
+          | Irrelevant -> Sorts.sprop
+          | Relevant -> Sorts.prop
+          | RelevanceVar q -> Sorts.qsort q u in
+        (ind_sort, out_sort) :: sorts
+      ) [] minds)
+
+
+let check_fix_pre_sorts ?evars env ((nvect, _), (names, _, bodies as recdef) as fix) =
+  let cache = Cache.create () in
+(* For elaboration of elimination constraints, we need to update the evar_map with
+   the possibly new constraints (see e.g. [esearch_guard] (Pretyping)). We expose this
+   function to be used for this purpose, while check_fix performs the normal check,
+   failing when elimination constraints are not satisfied. *)
+  let minds, rdef = inductive_of_mutfix ?evars env fix in
+  let sorts_opt = sorts_of_mutfix env minds names in
+  let inds = Array.map fst minds in
+  let flags = Environ.typing_flags env in
+  let raise_err = raise_fix_guard_err_fn env recdef names in
+  let () =
+    if flags.check_guarded then
+      let get_tree (kn,i) =
+        let mib = Environ.lookup_mind kn env in
+        mib.mind_packets.(i).mind_recargs
+      in
+      let trees = Array.map get_tree inds in
+      for i = 0 to Array.length bodies - 1 do
+        let (fenv, body) = rdef.(i) in
+        let renv = make_renv fenv nvect.(i) trees.(i) in
+        try check_one_fix cache ?evars renv nvect trees body
+        with FixGuardError (err_env, err) -> raise_err err_env i err
+      done
+  in
+  sorts_opt
+
+let check_fix ?evars env (_, (names, _, _ as recdef) as fix) =
+  let sorts_opts = check_fix_pre_sorts ?evars env fix in
+  let raise_err = raise_fix_guard_err_fn env recdef names in
+  let elim_to = eliminates_to (Environ.qualities env) in
+  Option.iter (List.iteri (fun i (ind_sort, out_sort) ->
+      if not (is_allowed_fixpoint elim_to ind_sort out_sort) then
+        raise_err env i @@ FixpointOnNonEliminable (ind_sort, out_sort)
+    )) sorts_opts
 
 (************************************************************************)
 (* Co-fixpoints. *)

@@ -59,7 +59,6 @@ type coqargs_config = {
   native_include_dirs : CUnix.physical_path list;
   output_directory : CUnix.physical_path option;
   exclude_dirs : CUnix.physical_path list;
-  beautify : bool;
   quiet : bool;
   time : time_config option;
   test_mode : bool;
@@ -81,7 +80,7 @@ type coqargs_pre = {
   ml_includes : CUnix.physical_path list;
   vo_includes : vo_path list;
 
-  load_vernacular_list : (string * bool) list;
+  load_vernacular_list : string list;
   injections  : injection_command list;
 }
 

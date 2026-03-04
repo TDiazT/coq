@@ -129,35 +129,28 @@ let check_constraints csts g = UnivConstraints.for_all (check_constraint g) csts
 let is_above_prop ugraph q =
   Sorts.QVar.Set.mem q ugraph.above_prop_qvars
 
-let check_type_in_type_qualities q1 q2 =
-  let open Sorts.Quality in
-  if Sorts.Quality.equal q1 q2 then true
-  else
+let check_eq_sort qeq univs s1 s2 =
+  let u1 = Sorts.univ_of_sort s1 in
+  let u2 = Sorts.univ_of_sort s2 in
+  let q1 = Sorts.quality s1 in
+  let q2 = Sorts.quality s2 in
+  qeq q1 q2 && (type_in_type univs || check_eq univs u1 u2)
+
+let check_leq_sort qeq univs s1 s2 =
+  if type_in_type univs then
+    let q1 = Sorts.quality s1 in
+    let q2 = Sorts.quality s2 in
+    let open Sorts.Quality in
     match q1, q2 with
-    | QConstant (QSProp | QProp), _ | _, QConstant (QSProp | QProp) -> true
-    | (QConstant _ | QVar _), _ -> false
-
-let check_eq_sort quals univs s1 s2 =
-  if type_in_type univs then
-    check_eq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2) ||
-      check_type_in_type_qualities (Sorts.quality s1) (Sorts.quality s2)
-  else
-    let u1 = Sorts.univ_of_sort s1 in
-    let u2 = Sorts.univ_of_sort s2 in
-    QGraph.check_eq_sort quals s1 s2 &&
-      check_eq univs u1 u2
-
-let check_leq_sort quals univs s1 s2 =
-  if type_in_type univs then
-    check_leq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2) ||
-      check_type_in_type_qualities (Sorts.quality s1) (Sorts.quality s2)
+    | QConstant QProp, QConstant QType -> true
+    | _ -> qeq q1 q2
   else
     match s1, s2 with
     | (SProp, SProp) | (Prop, Prop) | (Set, Set) -> true
     | (Prop, (Set | Type _)) -> true
     | (Prop, QSort (q, _)) -> is_above_prop univs q
     | (Type _ | Set), (Set | Type _) -> check_leq univs (Sorts.univ_of_sort s1) (Sorts.univ_of_sort s2)
-    | (QSort (_, u1), QSort (_, u2)) -> QGraph.check_eq_sort quals s1 s2 && check_leq univs u1 u2
+    | (QSort (s1, u1), QSort (s2, u2)) -> qeq (Sorts.Quality.QVar s1) (Sorts.Quality.QVar s2) && check_leq univs u1 u2
     | (QSort (q, u1), Type u2) -> is_above_prop univs q && check_leq univs u1 u2
     | ((SProp | Prop | Set | Type _ | QSort _), _) -> false
 
@@ -232,10 +225,10 @@ let check_subtype univs ctxT ctx =
 
 (** Instances *)
 
-let check_eq_instances quals univs t1 t2 =
+let check_eq_instances qeq univs t1 t2 =
   let qt1, ut1 = Instance.to_array t1 in
   let qt2, ut2 = Instance.to_array t2 in
-  CArray.equal (QGraph.check_eq quals) qt1 qt2
+  CArray.equal qeq qt1 qt2
   && CArray.equal (check_eq_level univs) ut1 ut2
 
 let domain g = G.domain g.graph

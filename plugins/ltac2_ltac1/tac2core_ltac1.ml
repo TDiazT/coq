@@ -148,7 +148,7 @@ let () =
       let ist = { env_ist = Id.Map.empty } in
       let lfun = Tac2interp.set_env ist lfun in
       let ist = Ltac_plugin.Tacinterp.default_ist () in
-      let ist = { ist with Geninterp.lfun = lfun } in
+      let ist = { ist with lfun } in
       let tac = (Ltac_plugin.Tacinterp.eval_tactic_ist ist tac : unit Proofview.tactic) in
       tac >>= fun () ->
       return v_unit
@@ -207,7 +207,7 @@ let () =
       let ist = { env_ist = Id.Map.empty } in
       let lfun = Tac2interp.set_env ist lfun in
       let ist = Ltac_plugin.Tacinterp.default_ist () in
-      let ist = { ist with Geninterp.lfun = lfun } in
+      let ist = { ist with lfun } in
       return (Tac2ffi.repr_of ltac1 (Tacinterp.Value.of_closure ist tac))
     in
     let len = List.length ids in
@@ -351,7 +351,7 @@ let () =
     let ans = Tac2ffi.repr_to ltac1 ans in
     Ftactic.return ans
   in
-  let () = Geninterp.register_interp0 wit_ltac2_val interp_fun in
+  let () = Tacinterp.Register.register_interp0 wit_ltac2_val interp_fun in
   define "ltac1_lambda" (valexpr @-> ret ltac1) @@ fun f ->
   let body = Tacexpr.TacGeneric (Some ltac2_ltac1_plugin, in_gen (glbwit wit_ltac2_val) ()) in
   let clos = CAst.make (Tacexpr.TacFun ([Name arg_id], CAst.make (Tacexpr.TacArg body))) in
@@ -406,13 +406,13 @@ let () =
     let ist = { ist with lfun = Id.Map.singleton self_id self } in
     Ftactic.return (Value.of_closure ist clos)
   in
-  Geninterp.register_interp0 wit_ltac2in1 interp
+  Tacinterp.Register.register_interp0 wit_ltac2in1 interp
 
 let () =
   let interp ist tac =
     let ist = { env_ist = Id.Map.empty } in
     Tac2interp.interp ist tac >>= fun v ->
     let v = repr_to ltac1 v in
-    Ftactic.return v
+    Ltac_plugin.Ftactic.return v
   in
-  Geninterp.register_interp0 wit_ltac2in1_val interp
+  Ltac_plugin.Tacinterp.Register.register_interp0 wit_ltac2in1_val interp

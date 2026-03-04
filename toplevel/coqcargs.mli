@@ -29,10 +29,10 @@ type glob_output =
 type t =
   { compilation_mode : compilation_mode
 
-  ; compile_file: (string * bool) option  (* bool is verbosity  *)
+  ; compile_file: string option  (* bool is verbosity  *)
   ; compilation_output_name : string option
 
-  ; echo : bool
+  ; beautify : bool
 
   ; glob_out    : glob_output option
 

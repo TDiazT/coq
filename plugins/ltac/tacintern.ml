@@ -701,7 +701,7 @@ let used_all_ntnvars ntnvars =
   in
   Id.Map.domain ntnvars
 
-let intern_ltac_in_term ist tac =
+let intern_ltac_in_term ?loc:_ ist tac =
   let tac = intern_tactic_or_tacarg ist tac in
   used_all_ntnvars ist.intern_sign.notation_variable_status, tac
 
@@ -716,15 +716,16 @@ let glob_tactic_env l env x =
   intern_pure_tactic { (Genintern.empty_glob_sign ~strict:true env) with ltacvars } x
 
 let intern_strategy ist s =
+  let open RewriteStratAst in
   let rec aux stratvars = function
-    | Rewrite.StratVar x ->
+    | StratVar x ->
       (* We could make this whole branch assert false, since it's
          unreachable except from plugins. But maybe it's useful if any
          plug-in wants to craft a strategy by hand. *)
-      if Id.Set.mem x.v stratvars then Rewrite.StratVar x.v
+      if Id.Set.mem x.v stratvars then StratVar x.v
       else CErrors.user_err ?loc:x.loc Pp.(str "Unbound strategy" ++ spc() ++ Id.print x.v)
     | StratConstr ({ v = CRef (qid, None) }, true) when idset_mem_qualid qid stratvars ->
-      let (_, x) = repr_qualid qid in Rewrite.StratVar x
+      let (_, x) = repr_qualid qid in StratVar x
     | StratConstr (c, b) -> StratConstr (intern_constr ist c, b)
     | StratFix (x, s) -> StratFix (x.v, aux (Id.Set.add x.v stratvars) s)
     | StratId | StratFail | StratRefl as s -> s
@@ -735,6 +736,12 @@ let intern_strategy ist s =
     | StratHints (b, id) -> StratHints (b, id)
     | StratEval r -> StratEval (intern_red_expr ist r)
     | StratFold c -> StratFold (intern_constr ist c)
+    | StratMatches c ->
+       let _, ip = intern_constr_pattern ist ~as_type:false ~ltacvars:Id.Set.empty c in
+       StratMatches ip
+    | StratTactic t ->
+       let it = intern_tactic_or_tacarg ist t in
+       StratTactic it
   in
   aux Id.Set.empty s
 
@@ -775,8 +782,8 @@ let () =
   Genintern.register_intern0 wit_ident intern_ident';
   Genintern.register_intern0 wit_hyp (lift intern_hyp);
   Genintern.register_intern0 wit_tactic (lift intern_tactic_or_tacarg);
-  Genintern.register_intern0 wit_ltac_in_term (lift intern_ltac_in_term);
-  Genintern.register_intern0 wit_ltac (lift intern_ltac);
+  Genintern.register_intern_constr wit_ltac_in_term intern_ltac_in_term;
+  Gentactic.register_intern wit_ltac (lift intern_ltac);
   Genintern.register_intern0 wit_quant_hyp (lift intern_quantified_hypothesis);
   Genintern.register_intern0 wit_constr (fun ist c -> (ist,intern_constr ist c));
   Genintern.register_intern0 wit_uconstr (fun ist c -> (ist,intern_constr ist c));

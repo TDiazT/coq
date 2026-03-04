@@ -125,6 +125,17 @@ let mis_is_recursive mip =
     in
   Array.exists one_is_rec (dest_subterms @@ Rtree.Kind.make mip.mind_recargs)
 
+let mis_is_nested kn mib =
+  Array.exists (fun mip ->
+    Array.exists (fun rvec ->
+      Array.exists (fun ra ->
+        match dest_recarg ra with
+        | Mrec (RecArgInd (kni, _)) -> not @@ MutInd.CanOrd.equal kn kni
+        | Mrec (RecArgPrim _) | Norec -> false
+      ) rvec
+    ) (dest_subterms @@ Rtree.Kind.make mip.mind_recargs)
+  ) mib.mind_packets
+
 let mis_nf_constructor_type ((_,j),u) (mib,mip) =
   let nconstr = Array.length mip.mind_consnames in
   if j > nconstr then user_err Pp.(str "Not enough constructors in the type.");
@@ -259,10 +270,13 @@ let squash_elim_sort sigma squash rtnsort =
      add_unif_if_cannot_elim_into Evd.set_eq_sort Sorts.sprop
      (* Squashed inductive in SProp, return sort must be SProp. *)
   | SquashToQuality (QConstant QType) ->
-         add_unif_if_cannot_elim_into Evd.set_leq_sort Sorts.set
+     add_unif_if_cannot_elim_into Evd.set_leq_sort Sorts.set
      (* Sort poly squash to type *)
   | SquashToQuality (QVar q) ->
-     add_unif_if_cannot_elim_into Evd.set_leq_sort (Sorts.qsort q Univ.Universe.type0)
+     let q' = ESorts.quality sigma rtnsort in
+     let g = Evd.elim_graph sigma in
+     if Inductive.eliminates_to g (QVar q) q' then sigma
+     else Evd.set_elim_to sigma (QVar q) q'
 
 let is_squashed sigma (specif,u) =
   Inductive.is_squashed_gen

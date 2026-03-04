@@ -15,36 +15,6 @@
     (raw level printers are always useful for clearer [-time] output, for beautify,
     and some other debug prints)
 
-    - extensible constr syntax beyond notations (eg [ltac:()], [ltac2:()] and ltac2 [$x]).
-      Such genargs appear in glob_term GGenarg and constrexpr CGenarg.
-      They must be registered with [Genintern.register_intern0]
-      and [GlobEnv.register_constr_interp0].
-
-      The glob level may be kept through notations and other operations like Ltac definitions
-      (eg [Ltac foo := exact ltac2:(foo)]) in which case [Gensubst.register_subst0]
-      and a glob level printer are useful.
-
-      Other useful registrations are
-      - [Genintern.register_intern_pat] and [Patternops.register_interp_pat]
-        to be used in tactic patterns.
-      - [Genintern.register_ntn_subst0] to be used in notations
-        (eg [Notation "foo" := ltac2:(foo)]).
-
-      NB: only the base [ExtraArg] is allowed here.
-
-    - tactic arguments to commands defined without depending on ltac_plugin
-      (VernacProof, HintsExtern, Hint Rewrite, etc).
-
-      Must be registered with [Genintern.register_intern0] and
-      [Genintern.register_interp0].
-
-      The glob level can be kept (currently with Hint Extern and Hint
-      Rewrite) so [Gensubst.register_subst0] is also needed.
-
-      Currently AFAICT this is just [Tacarg.wit_ltac].
-
-      NB: only the base [ExtraArg] is allowed here.
-
     - vernac arguments, used by vernac extend. Usually declared in mlg
       using VERNAC ARGUMENT EXTEND then used in VERNAC EXTEND.
 
@@ -63,7 +33,7 @@
       then used in TACTIC EXTEND.
 
       Must be registered with [Genintern.register_intern0],
-      [Gensubst.register_subst0] and [Genintern.register_interp0].
+      [Gensubst.register_subst0] and [Geninterp.register_interp0].
 
       Must be registered with [Procq.register_grammar] as tactic extend
       only gets the genarg as argument so must get the grammar from
@@ -71,7 +41,7 @@
 
       They must be associated with a [Geninterp.Val.tag] using [Geninterp.register_val0]
       (which creates a fresh tag if passed [None]).
-      Note: although [Genintern.register_interp0] registers a producer
+      Note: although [Geninterp.register_interp0] registers a producer
       of arbitrary [Geninterp.Val.t], tactic_extend requires them to be of the tag
       registered by [Geninterp.register_val0] to work properly.
 

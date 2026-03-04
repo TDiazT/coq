@@ -30,6 +30,13 @@ let map_repr f g r = {
 type ind_data = (Names.Ind.t * Declarations.mutual_inductive_body)
 type binder = (Names.Name.t EConstr.binder_annot * EConstr.types)
 
+module ModField = struct
+  type t =
+    | Ref of Names.GlobRef.t
+    | Submodule of Names.ModPath.t
+    | Rewrule
+end
+
 (** Dynamic tags *)
 
 let val_exn = Val.create "exn"
@@ -61,6 +68,8 @@ let val_pretype_flags = Val.create "pretype_flags"
 let val_expected_type = Val.create "expected_type"
 let val_reduction = Val.create "reduction"
 let val_rewstrategy = Val.create "rewstrategy"
+let val_modpath = Val.create "modpath"
+let val_module_field = Val.create "module_field"
 
 let extract_val (type a) (type b) (tag : a Val.tag) (tag' : b Val.tag) (v : b) : a =
 match Val.eq tag tag' with
@@ -194,6 +203,23 @@ let fun2 arg1 arg2 res = {
   r_of = of_fun2 arg1.r_to arg2.r_to res.r_of;
   r_to = to_fun2 arg1.r_of arg2.r_of res.r_to;
 }
+
+type ('a, 'b, 'c, 'd) fun3 = 'a -> 'b -> 'c -> 'd Proofview.tactic
+
+let of_fun3 to_arg1 to_arg2 to_arg3 of_res f =
+  of_closure (mk_closure (arity_suc (arity_suc arity_one)) (fun x y z ->
+      Proofview.Monad.map of_res @@
+      f (to_arg1 x) (to_arg2 y) (to_arg3 z)))
+
+let to_fun3 of_arg1 of_arg2 of_arg3 to_res f x y z =
+  Proofview.Monad.map to_res @@
+  apply (to_closure f) [of_arg1 x; of_arg2 y; of_arg3 z]
+
+let fun3 arg1 arg2 arg3 res = {
+  r_of = of_fun3 arg1.r_to arg2.r_to arg3.r_to res.r_of;
+  r_to = to_fun3 arg1.r_of arg2.r_of arg3.r_of res.r_to;
+}
+
 
 let of_ext tag c =
   ValExt (tag, c)
@@ -461,6 +487,15 @@ let binder = repr_ext val_binder
 let of_instance c = of_ext val_instance c
 let to_instance c = to_ext val_instance c
 let instance = repr_ext val_instance
+
+let of_modpath c = of_ext val_modpath c
+let to_modpath c = to_ext val_modpath c
+let modpath = repr_ext val_modpath
+
+let of_module_field c = of_ext val_module_field c
+let to_module_field c = to_ext val_module_field c
+let module_field = repr_ext val_module_field
+
 
 let of_reference = let open Names.GlobRef in function
 | VarRef id -> ValBlk (0, [| of_ident id |])
