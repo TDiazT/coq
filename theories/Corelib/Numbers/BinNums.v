@@ -11,14 +11,15 @@
 (** * Binary Numerical Datatypes *)
 
 Set Implicit Arguments.
-
+Set Universe Polymorphism.
+Unset Collapse Sorts ToType.
 (** [positive] is a datatype representing the strictly positive integers
    in a binary way. Starting from 1 (represented by [xH]), one can
    add a new least significant digit via [xO] (digit 0) or [xI] (digit 1).
    Numbers in [positive] will also be denoted using a decimal notation;
    e.g. [6%positive] will abbreviate [xO (xI xH)] *)
 
-Inductive positive : Set :=
+Inductive positive : Type :=
   | xI : positive -> positive
   | xO : positive -> positive
   | xH : positive.
@@ -37,12 +38,16 @@ Register xI as num.pos.xI.
 Register xO as num.pos.xO.
 Register xH as num.pos.xH.
 
+Definition positive_rec := positive_poly_rec@{_ Type;_}.
+Definition positive_rect := positive_poly_rec@{_ Type;_}.
+Definition positive_ind := positive_poly_rec@{_ Prop;_}.
+
 (** [N] is a datatype representing natural numbers in a binary way,
     by extending the [positive] datatype with a zero.
     Numbers in [N] will also be denoted using a decimal notation;
     e.g. [6%N] will abbreviate [Npos (xO (xI xH))] *)
 
-Inductive N : Set :=
+Inductive N : Type :=
   | N0 : N
   | Npos : positive -> N.
 
@@ -58,6 +63,10 @@ Register N as num.N.type.
 Register N0 as num.N.N0.
 Register Npos as num.N.Npos.
 
+Definition N_rec := N_poly_rec@{_ _ Type;_}.
+Definition N_rect := N_poly_rec@{_ _ Type;_}.
+Definition N_ind := N_poly_rec@{_ _ Prop;_}.
+
 (** [Z] is a datatype representing the integers in a binary way.
     An integer is either zero or a strictly positive number
     (coded as a [positive]) or a strictly negative number
@@ -65,7 +74,7 @@ Register Npos as num.N.Npos.
     Numbers in [Z] will also be denoted using a decimal notation;
     e.g. [(-6)%Z] will abbreviate [Zneg (xO (xI xH))] *)
 
-Inductive Z : Set :=
+Inductive Z : Type :=
   | Z0 : Z
   | Zpos : positive -> Z
   | Zneg : positive -> Z.
@@ -83,3 +92,9 @@ Register Z as num.Z.type.
 Register Z0 as num.Z.Z0.
 Register Zpos as num.Z.Zpos.
 Register Zneg as num.Z.Zneg.
+
+Definition Z_rec := Z_poly_rec@{_ _ _ Type;_}.
+Definition Z_rect := Z_poly_rec@{_ _ _ Type;_}.
+Definition Z_ind := Z_poly_rec@{_ _ _ Prop;_}.
+
+Unset Universe Polymorphism.
