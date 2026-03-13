@@ -9,6 +9,10 @@
 (************************************************************************)
 
 From Corelib Require Export BinNums PosDef.
+Set Universe Polymorphism.
+Unset Collapse Sorts ToType.
+Unset Universe Minimization ToSet.
+
 
 (**********************************************************************)
 (** * Binary natural numbers, definitions of operations *)
