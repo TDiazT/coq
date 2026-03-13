@@ -408,7 +408,7 @@ let is_declared_term env evd t =
     (* Restrict typeclass resolution to trivial cases *)
     let typ = Retyping.get_type_of env evd t in
     try
-      let _evd, dc = EConstr.fresh_global env evd (Lazy.force rocq_DeclaredConstant) in
+      let evd, dc = EConstr.fresh_global env evd (Lazy.force rocq_DeclaredConstant) in
       ignore
         (Class_tactics.resolve_one_typeclass env evd
            (EConstr.mkApp (dc, [|typ; t|])));
@@ -2275,7 +2275,7 @@ let micromega_genr prover tac =
         | Unknown | Model _ ->
           flush stdout;
           Tacticals.tclFAIL (Pp.str " Cannot find witness")
-        | Prf (ids, ff', sigma', res') ->
+        | Prf (ids, ff', sigma, res') ->
           let ff, ids =
             formula_hyps_concl
               (List.filter (fun (n, _) -> CList.mem_f Id.equal n ids) hyps)
@@ -2283,7 +2283,7 @@ let micromega_genr prover tac =
           in
           let ff' = abstract_wrt_formula ff' ff in
           let sigma, (arith_goal, props, vars, ff_arith) =
-            make_goal_of_formula (genv, sigma') dump_rexpr ff'
+            make_goal_of_formula (genv, sigma) dump_rexpr ff'
           in
           let intro (id, _) = Tactics.introduction id in
           let intro_vars = Tacticals.tclTHENLIST (List.map intro vars) in
