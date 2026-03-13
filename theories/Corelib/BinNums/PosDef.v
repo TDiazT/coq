@@ -19,6 +19,9 @@
     are now defined in [BinNums.v] *)
 
 From Corelib Require Export BinNums.
+Set Universe Polymorphism.
+Unset Collapse Sorts ToType.
+Unset Universe Minimization ToSet.
 
 Local Open Scope positive_scope.
 
@@ -96,7 +99,7 @@ Definition pred_N x :=
 
 (** ** An auxiliary type for subtraction *)
 
-Inductive mask : Set :=
+Inductive mask : Type :=
 | IsNul : mask
 | IsPos : positive -> mask
 | IsNeg : mask.
