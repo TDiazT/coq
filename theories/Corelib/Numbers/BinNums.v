@@ -72,6 +72,7 @@ Definition N_rect := N_poly_rec@{_ _ Type;_ _}.
 Definition N_ind := N_poly_rec@{_ _ Prop;_ _}.
 
 Register Scheme N_ind as ind_dep for N.
+Register Scheme N_rect as rect_dep for N.
 
 (** [Z] is a datatype representing the integers in a binary way.
     An integer is either zero or a strictly positive number
@@ -104,3 +105,4 @@ Definition Z_rect := Z_poly_rec@{_ _ _ Type;_ _ _}.
 Definition Z_ind := Z_poly_rec@{_ _ _ Prop;_ _ _}.
 
 Register Scheme Z_ind as ind_dep for Z.
+Register Scheme Z_rect as rect_dep for Z.
