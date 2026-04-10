@@ -19,9 +19,9 @@
     are now defined in [BinNums.v] *)
 
 From Corelib Require Export BinNums.
-Set Universe Polymorphism.
-Unset Collapse Sorts ToType.
-Unset Universe Minimization ToSet.
+(*Set Universe Polymorphism.*)
+(*Unset Collapse Sorts ToType.*)
+(*Unset Universe Minimization ToSet.*)
 
 Local Open Scope positive_scope.
 

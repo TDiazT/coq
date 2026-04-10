@@ -9,9 +9,9 @@
 (************************************************************************)
 
 From Corelib Require Export BinNums PosDef.
-Set Universe Polymorphism.
-Unset Collapse Sorts ToType.
-Unset Universe Minimization ToSet.
+(*Set Universe Polymorphism.*)
+(*Unset Collapse Sorts ToType.*)
+(*Unset Universe Minimization ToSet.*)
 
 
 (**********************************************************************)
