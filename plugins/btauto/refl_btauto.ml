@@ -12,6 +12,11 @@ open Constr
 
 let bt_lib_constr n = lazy (UnivGen.constr_of_monomorphic_global (Global.env ()) @@ Rocqlib.lib_ref n)
 
+let bt_lib_gref n = lazy (Rocqlib.lib_ref n)
+
+let fresh_ref env sigma lref =
+  EConstr.fresh_global env sigma (Lazy.force lref)
+
 let decomp_term sigma (c : Constr.t) =
   Constr.kind (EConstr.Unsafe.to_constr (Termops.strip_outer_cast sigma (EConstr.of_constr c)))
 
@@ -33,17 +38,20 @@ module RocqList = struct
 end
 
 module RocqPositive = struct
-  let _xH = bt_lib_constr "num.pos.xH"
-  let _xO = bt_lib_constr "num.pos.xO"
-  let _xI = bt_lib_constr "num.pos.xI"
+  let _xH = bt_lib_gref "num.pos.xH"
+  let _xO = bt_lib_gref "num.pos.xO"
+  let _xI = bt_lib_gref "num.pos.xI"
 
-  (* A Rocq nat from an int *)
-  let rec of_int n =
-    if n <= 1 then Lazy.force _xH
+  (* A Rocq positive from an int; threads (env, sigma) for polymorphic constructors *)
+  let rec of_int env sigma n =
+    if n <= 1 then fresh_ref env sigma _xH
     else
-      let ans = of_int (n / 2) in
-      if n mod 2 = 0 then lapp _xO [|ans|]
-      else lapp _xI [|ans|]
+      let sigma, ans = of_int env sigma (n / 2) in
+      let sigma, ctor =
+        if n mod 2 = 0 then fresh_ref env sigma _xO
+        else fresh_ref env sigma _xI
+      in
+      sigma, EConstr.mkApp (ctor, [|ans|])
 
 end
 
@@ -149,20 +157,42 @@ module Btauto = struct
   let witness = bt_lib_constr "plugins.btauto.witness"
   let soundness = bt_lib_constr "plugins.btauto.soundness"
 
-  let rec convert = function
-  | Bool.Var n -> lapp f_var [|RocqPositive.of_int n|]
-  | Bool.Const true -> Lazy.force f_top
-  | Bool.Const false -> Lazy.force f_btm
-  | Bool.Andb (b1, b2) -> lapp f_cnj [|convert b1; convert b2|]
-  | Bool.Orb (b1, b2) -> lapp f_dsj [|convert b1; convert b2|]
-  | Bool.Negb b -> lapp f_neg [|convert b|]
-  | Bool.Xorb (b1, b2) -> lapp f_xor [|convert b1; convert b2|]
-  | Bool.Ifb (b1, b2, b3) -> lapp f_ifb [|convert b1; convert b2; convert b3|]
+  let rec convert env sigma = function
+  | Bool.Var n ->
+    let sigma, pos = RocqPositive.of_int env sigma n in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_var), [|pos|])
+  | Bool.Const true ->
+    sigma, EConstr.of_constr (Lazy.force f_top)
+  | Bool.Const false ->
+    sigma, EConstr.of_constr (Lazy.force f_btm)
+  | Bool.Andb (b1, b2) ->
+    let sigma, c1 = convert env sigma b1 in
+    let sigma, c2 = convert env sigma b2 in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_cnj), [|c1; c2|])
+  | Bool.Orb (b1, b2) ->
+    let sigma, c1 = convert env sigma b1 in
+    let sigma, c2 = convert env sigma b2 in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_dsj), [|c1; c2|])
+  | Bool.Negb b ->
+    let sigma, c = convert env sigma b in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_neg), [|c|])
+  | Bool.Xorb (b1, b2) ->
+    let sigma, c1 = convert env sigma b1 in
+    let sigma, c2 = convert env sigma b2 in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_xor), [|c1; c2|])
+  | Bool.Ifb (b1, b2, b3) ->
+    let sigma, c1 = convert env sigma b1 in
+    let sigma, c2 = convert env sigma b2 in
+    let sigma, c3 = convert env sigma b3 in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force f_ifb), [|c1; c2; c3|])
 
   let convert_env env : Constr.t =
     RocqList.of_list (Lazy.force Bool.typ) env
 
-  let reify env t = lapp eval [|convert_env env; convert t|]
+  let reify penv sigma btenv t =
+    let sigma, ct = convert penv sigma t in
+    sigma, EConstr.mkApp (EConstr.of_constr (Lazy.force eval),
+                          [|EConstr.of_constr (convert_env btenv); ct|])
 
   let print_counterexample env sigma p penv =
     let var = lapp witness [|p|] in
@@ -239,19 +269,20 @@ module Btauto = struct
       match t with
       | App (c, [|typ; tl; tr|])
           when typ === bool && c === eq ->
-          let env = Env.empty () in
-          let fl = Bool.quote env genv sigma tl in
-          let fr = Bool.quote env genv sigma tr in
-          let env = Env.to_list env in
-          let fl = reify env fl in
-          let fr = reify env fr in
-          let changed_gl = Constr.mkApp (c, [|typ; fl; fr|]) in
-          let changed_gl = EConstr.of_constr changed_gl in
+          let btenv = Env.empty () in
+          let fl = Bool.quote btenv genv sigma tl in
+          let fr = Bool.quote btenv genv sigma tr in
+          let btenv = Env.to_list btenv in
+          let sigma, fl = reify genv sigma btenv fl in
+          let sigma, fr = reify genv sigma btenv fr in
+          let changed_gl = EConstr.mkApp (EConstr.of_constr c,
+                             [|EConstr.of_constr typ; fl; fr|]) in
           Tacticals.tclTHENLIST [
+            Proofview.Unsafe.tclEVARS sigma;
             Tactics.change_concl changed_gl;
             Tactics.apply (EConstr.of_constr (Lazy.force soundness));
             Tactics.normalise_vm_in_concl;
-            try_unification env
+            try_unification btenv
           ]
       | _ ->
           let msg = str "Cannot recognize a boolean equality" in
