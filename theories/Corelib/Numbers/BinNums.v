@@ -11,16 +11,15 @@
 (** * Binary Numerical Datatypes *)
 
 Set Implicit Arguments.
-Set Universe Polymorphism.
-Unset Collapse Sorts ToType.
-Unset Universe Minimization ToSet.
+
 (** [positive] is a datatype representing the strictly positive integers
    in a binary way. Starting from 1 (represented by [xH]), one can
    add a new least significant digit via [xO] (digit 0) or [xI] (digit 1).
    Numbers in [positive] will also be denoted using a decimal notation;
    e.g. [6%positive] will abbreviate [xO (xI xH)] *)
 
-Inductive positive : Type :=
+#[universes(polymorphic, collapse_sort_variables=no)]
+Inductive positive@{s;} : Type@{s;0} :=
   | xI : positive -> positive
   | xO : positive -> positive
   | xH : positive.
@@ -39,9 +38,9 @@ Register xI as num.pos.xI.
 Register xO as num.pos.xO.
 Register xH as num.pos.xH.
 
-Definition positive_rec := positive_poly_rec@{_ Type;_ _}.
-Definition positive_rect := positive_poly_rec@{_ Type;_ _}.
-Definition positive_ind := positive_poly_rec@{_ Prop;_ _}.
+Definition positive_rec := positive_poly_rec@{_ Type; _}.
+Definition positive_rect := positive_poly_rec@{_ Type; _}.
+Definition positive_ind := positive_poly_rec@{_ Prop; _}.
 
 Register Scheme positive_rect as rect_dep for positive.
 Register Scheme positive_ind as ind_dep for positive.
@@ -51,7 +50,7 @@ Register Scheme positive_ind as ind_dep for positive.
     Numbers in [N] will also be denoted using a decimal notation;
     e.g. [6%N] will abbreviate [Npos (xO (xI xH))] *)
 
-Inductive N : Type :=
+Inductive N : Set :=
   | N0 : N
   | Npos : positive -> N.
 
@@ -67,12 +66,12 @@ Register N as num.N.type.
 Register N0 as num.N.N0.
 Register Npos as num.N.Npos.
 
-Definition N_rec := N_poly_rec@{_ _ Type;_ _}.
-Definition N_rect := N_poly_rec@{_ _ Type;_ _}.
-Definition N_ind := N_poly_rec@{_ _ Prop;_ _}.
-
-Register Scheme N_ind as ind_dep for N.
-Register Scheme N_rect as rect_dep for N.
+(*Definition N_rec := N_poly_rec@{_ _ Type;_ _}.*)
+(*Definition N_rect := N_poly_rec@{_ _ Type;_ _}.*)
+(*Definition N_ind := N_poly_rec@{_ _ Prop;_ _}.*)
+(**)
+(*Register Scheme N_ind as ind_dep for N.*)
+(*Register Scheme N_rect as rect_dep for N.*)
 
 (** [Z] is a datatype representing the integers in a binary way.
     An integer is either zero or a strictly positive number
@@ -81,7 +80,7 @@ Register Scheme N_rect as rect_dep for N.
     Numbers in [Z] will also be denoted using a decimal notation;
     e.g. [(-6)%Z] will abbreviate [Zneg (xO (xI xH))] *)
 
-Inductive Z : Type :=
+Inductive Z : Set :=
   | Z0 : Z
   | Zpos : positive -> Z
   | Zneg : positive -> Z.
@@ -100,9 +99,9 @@ Register Z0 as num.Z.Z0.
 Register Zpos as num.Z.Zpos.
 Register Zneg as num.Z.Zneg.
 
-Definition Z_rec := Z_poly_rec@{_ _ _ Type;_ _ _}.
-Definition Z_rect := Z_poly_rec@{_ _ _ Type;_ _ _}.
-Definition Z_ind := Z_poly_rec@{_ _ _ Prop;_ _ _}.
-
-Register Scheme Z_ind as ind_dep for Z.
-Register Scheme Z_rect as rect_dep for Z.
+(*Definition Z_rec := Z_poly_rec@{_ _ _ Type;_ _ _}.*)
+(*Definition Z_rect := Z_poly_rec@{_ _ _ Type;_ _ _}.*)
+(*Definition Z_ind := Z_poly_rec@{_ _ _ Prop;_ _ _}.*)
+(**)
+(*Register Scheme Z_ind as ind_dep for Z.*)
+(*Register Scheme Z_ind as ind_dep for Z.*)
