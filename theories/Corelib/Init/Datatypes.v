@@ -210,7 +210,8 @@ Register S as num.nat.S.
 (*Set Universe Polymorphism.*)
 (*Unset Collapse Sorts ToType.*)
 (*Set Printing Universes.*)
-Inductive option (A:Type) : Type :=
+#[universes(polymorphic, cumulative)]
+Inductive option@{s1 s2 ; u} (A:Type@{s1;u}) : Type@{s2; u} :=
   | Some : A -> option A
   | None : option A.
 
@@ -221,17 +222,19 @@ Register option as core.option.type.
 Register Some as core.option.Some.
 Register None as core.option.None.
 
+#[universes(polymorphic, collapse_sort_variables=no)]
 Definition option_map (A B:Type) (f:A->B) (o : option A) : option B :=
   match o with
     | Some a => @Some B (f a)
     | None => @None B
   end.
 
-(*Definition option_rec := option_poly_rec@{_ _ Type;_ _}.*)
-(*Definition option_rect := option_poly_rec@{_ _ Type;_ _}.*)
-(*Definition option_ind := option_poly_rec@{_ _ Prop;_ _}.*)
-(**)
-(*Register Scheme option_ind as ind_dep for option.*)
+Definition option_rec := option_poly_rec@{_ Type;_ _}.
+Definition option_rect := option_poly_rec@{_ Type;_ _}.
+Definition option_ind := option_poly_rec@{_ Prop;_ _}.
+
+Register Scheme option_rec as rec_dep for option.
+Register Scheme option_ind as ind_dep for option.
 (**)
 (*Unset Universe Polymorphism.*)
 (** [sum A B], written [A + B], is the disjoint sum of [A] and [B] *)
